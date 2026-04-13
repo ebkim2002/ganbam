@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>간밤 벙 정산</title>
+<style>
+:root {
+  --c0:#111;--c1:#444;--c2:#777;--c3:#aaa;--c4:#ddd;--c5:#f0f0f0;--c6:#fafafa;
+  --r:10px;--rs:6px;
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;background:#f2f2f7;color:var(--c0);font-size:15px;line-height:1.5;min-height:100dvh}
+.wrap{max-width:640px;margin:0 auto;padding:24px 16px calc(80px + var(--safe-bottom))}
+
+/* Lock */
+.lock{display:flex;align-items:center;justify-content:center;min-height:90dvh;padding:16px}
+.lock-box{background:#fff;border:1px solid var(--c4);border-radius:16px;padding:32px 24px;width:100%;max-width:360px;text-align:center}
+.lock-icon{font-size:40px;margin-bottom:14px}
+.lock-box h2{font-size:20px;font-weight:700;margin-bottom:6px}
+.lock-box p{font-size:14px;color:var(--c2);margin-bottom:22px;line-height:1.6}
+.err{color:#c0392b;font-size:13px;margin-top:8px;min-height:18px}
+
+/* Tabs */
+.tabs{display:flex;border-bottom:1px solid var(--c4);margin:16px 0 20px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;border:none;background:none;color:var(--c2);border-bottom:2px solid transparent;margin-bottom:-1px;font-family:inherit;transition:all .15s;white-space:nowrap;flex-shrink:0}
+.tab.on{color:var(--c0);border-bottom-color:var(--c0)}
+
+/* Cards */
+.card{background:#fff;border:1px solid var(--c4);border-radius:var(--r);padding:16px;margin-bottom:12px}
+
+/* Form */
+label.lbl{display:block;font-size:11px;font-weight:700;color:var(--c2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+input[type=text],input[type=number],input[type=password],input[type=tel]{
+  width:100%;border:1px solid var(--c4);border-radius:var(--rs);
+  padding:10px 12px;font-size:16px;font-family:inherit;outline:none;
+  background:#fff;color:var(--c0);transition:border-color .15s;
+  -webkit-appearance:none;appearance:none;
+}
+input:focus{border-color:#555}
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+@media(max-width:400px){.g3{grid-template-columns:1fr 1fr}.g3 .venue-col{grid-column:1/-1}}
+.fld{margin-bottom:14px}
+
+/* Member rows */
+.mlist{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.mitem{display:flex;align-items:center;gap:8px;background:var(--c6);border:1px solid var(--c4);border-radius:var(--rs);padding:8px 10px}
+.mname{flex:1;font-weight:600;font-size:14px;word-break:break-all}
+.tgrp{display:flex;gap:4px;flex-shrink:0}
+.tgl{padding:6px 10px;border-radius:99px;border:1px solid var(--c4);background:#fff;color:var(--c1);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .15s;white-space:nowrap;min-height:36px}
+.tgl.nosul-on{background:#3B6D11;border-color:transparent;color:#fff}
+.tgl.sul-on{background:#c8860a;border-color:transparent;color:#fff}
+.del-m{border:none;background:none;color:var(--c3);cursor:pointer;font-size:22px;line-height:1;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center}
+.del-m:hover{color:#c0392b}
+.add-row{display:flex;gap:8px}
+.add-row input{flex:1;min-width:0}
+
+/* Buttons */
+.btn{padding:10px 18px;border-radius:var(--rs);border:1px solid var(--c4);background:#fff;color:var(--c0);font-size:14px;font-family:inherit;cursor:pointer;font-weight:600;transition:all .15s;min-height:44px}
+.btn:active{opacity:.7}
+.btn-primary{background:var(--c0);color:#fff;border-color:var(--c0)}
+.btn-sm{padding:8px 14px;font-size:13px;min-height:38px}
+.btn-ghost{border:none;background:none;color:var(--c2);font-size:13px;font-family:inherit;cursor:pointer;padding:6px 8px;min-height:36px}
+.btn-dashed{width:100%;padding:13px;border:1.5px dashed var(--c3);border-radius:var(--rs);background:none;color:var(--c2);font-size:14px;font-family:inherit;cursor:pointer;min-height:48px}
+.btn-danger{color:#c0392b}
+
+/* Table */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px}
+.tbl{width:100%;border-collapse:collapse;font-size:13px;min-width:280px}
+.tbl th{text-align:right;padding:8px 10px;font-weight:700;color:var(--c2);font-size:11px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;background:var(--c6)}
+.tbl th:first-child{text-align:left}
+.tbl td{padding:9px 10px;border-top:1px solid var(--c5);text-align:right;white-space:nowrap}
+.tbl td:first-child{text-align:left;font-weight:600}
+.tbl tr.ttl td{border-top:2px solid var(--c4);background:var(--c6);font-weight:700}
+.none{color:var(--c3)}
+.sub{color:var(--c2);font-size:11px}
+
+/* Tags */
+.tag-host{display:inline-block;padding:2px 8px;border-radius:99px;background:#E6F1FB;color:#185FA5;font-size:11px;font-weight:700;margin-left:6px}
+.tag-n{display:inline-block;padding:2px 7px;border-radius:99px;background:#EAF3DE;color:#3B6D11;font-size:11px;font-weight:700}
+.tag-s{display:inline-block;padding:2px 7px;border-radius:99px;background:#FEF3C7;color:#92400e;font-size:11px;font-weight:700}
+
+/* Archive */
+.arch-item{background:#fff;border:1px solid var(--c4);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:border-color .15s}
+.arch-item:active{background:var(--c6)}
+
+/* Settings */
+.scard{background:#fff;border:1px solid var(--c4);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.scard h3{font-size:15px;font-weight:700;margin-bottom:14px}
+
+/* Modal overlay */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
+.modal{background:#fff;border-radius:16px;padding:24px;width:100%;max-width:340px}
+.modal h3{font-size:17px;font-weight:700;margin-bottom:8px}
+.modal p{font-size:13px;color:var(--c2);margin-bottom:16px;line-height:1.6}
+.modal-btns{display:flex;gap:8px;margin-top:16px}
+.modal-btns .btn{flex:1}
+
+/* Toast */
+.toast{position:fixed;bottom:calc(24px + var(--safe-bottom));left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:12px 22px;border-radius:99px;font-size:14px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+
+/* Loading */
+.loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px 0;color:var(--c2);font-size:14px}
+.spinner{width:20px;height:20px;border:2px solid var(--c4);border-top-color:var(--c0);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Misc */
+.rbadge{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0}
+.preview{border-radius:var(--rs);padding:11px 13px;margin-top:6px}
+.preview-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.preview-row:last-child{margin-bottom:0}
+.flex{display:flex;gap:8px;align-items:center}
+.mt8{margin-top:8px}.mt12{margin-top:12px}
+.mb8{margin-bottom:8px}
+.empty{text-align:center;padding:56px 0;color:var(--c2);font-size:14px;line-height:1.9}
+.app-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px}
+h1{font-size:22px;font-weight:700;letter-spacing:-0.5px}
+.dim{color:var(--c2);font-size:13px;margin-top:2px}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div class="toast" id="toast"></div>
+<script>
+/* ═══════════════════════════════════════
+   JSONBin 설정
+═══════════════════════════════════════ */
+const JKEY = '$2a$10$0EogQpjFzVeMKxfutur6EO0KrcpKbzxtPYxDMxNaw3eJ4GBQL/KD6';
+const JBASE = 'https://api.jsonbin.io/v3/b';
+let BIN_ID = null; // 최초 생성 후 localStorage에 저장
+
+const LS = {
+  get: k => { try { return JSON.parse(localStorage.getItem(k)) } catch { return null } },
+  set: (k,v) => localStorage.setItem(k, JSON.stringify(v)),
+};
+
+/* JSONBin API */
+async function jFetch(method, path, body) {
+  const res = await fetch(JBASE + path, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Master-Key': JKEY,
+      'X-Bin-Versioning': 'false',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error('JSONBin 오류: ' + res.status);
+  return res.json();
+}
+
+async function loadData() {
+  BIN_ID = LS.get('bin_id');
+  if (!BIN_ID) {
+    // 최초 실행: 새 bin 생성
+    const res = await jFetch('POST', '', {
+      appPassword: null,
+      archives: [],
+    });
+    BIN_ID = res.metadata.id;
+    LS.set('bin_id', BIN_ID);
+    return { appPassword: null, archives: [] };
+  }
+  const res = await jFetch('GET', `/${BIN_ID}/latest`);
+  return res.record;
+}
+
+async function saveData(data) {
+  await jFetch('PUT', `/${BIN_ID}`, data);
+}
+
+/* ═══════════════════════════════════════
+   색상 팔레트
+═══════════════════════════════════════ */
+const COLORS = ['#185FA5','#0F6E56','#993C1D','#3C3489','#854F0B','#3B6D11','#993556'];
+const CBGS   = ['#E6F1FB','#E1F5EE','#FAECE7','#EEEDFE','#FAEEDA','#EAF3DE','#FBEAF0'];
+
+/* ═══════════════════════════════════════
+   앱 상태
+═══════════════════════════════════════ */
+let DB = { appPassword: null, archives: [] }; // JSONBin 데이터
+let S = {
+  unlocked: false,
+  tab: 'new',
+  host: '',
+  title: '',
+  rounds: [mkRound(0)],
+  archView: null,
+  modal: null, // { type: 'delete'|'edit', archId }
+  loading: false,
+};
+
+function mkRound(idx) {
+  return { id: uid(), label:`${idx+1}차`, venue:'', food:'', drink:'', members:[] };
+}
+function uid() { return '_'+Math.random().toString(36).slice(2)+Date.now() }
+
+/* ═══════════════════════════════════════
+   정산 계산
+═══════════════════════════════════════ */
+function compute(rounds) {
+  const totals={}, breakdown={};
+  for (const r of rounds) {
+    const food=parseFloat(r.food)||0, drink=parseFloat(r.drink)||0;
+    const all=r.members.filter(m=>m.type==='nosul'||m.type==='sul');
+    const sulM=r.members.filter(m=>m.type==='sul');
+    if (!all.length) continue;
+    const fSh=all.length>0&&food>0?Math.round(food/all.length):0;
+    const dSh=sulM.length>0&&drink>0?Math.round(drink/sulM.length):0;
+    for (const m of all) {
+      const isSul=m.type==='sul';
+      const mine=fSh+(isSul?dSh:0);
+      if (!totals[m.name]) { totals[m.name]=0; breakdown[m.name]=[]; }
+      totals[m.name]+=mine;
+      breakdown[m.name].push({label:r.label,venue:r.venue,food:fSh,drink:isSul?dSh:0,total:mine,isSul});
+    }
+  }
+  return {totals,breakdown};
+}
+function grandTotal(rounds) {
+  return rounds.reduce((s,r)=>s+(parseFloat(r.food)||0)+(parseFloat(r.drink)||0),0);
+}
+
+/* ═══════════════════════════════════════
+   Toast / 유틸
+═══════════════════════════════════════ */
+function toast(msg) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2200);
+}
+function fmtComma(v) {
+  const n=parseFloat(String(v).replace(/,/g,''));
+  if(!v||isNaN(n)) return '';
+  return Math.round(n).toLocaleString('ko-KR');
+}
+function stripComma(v) { return String(v).replace(/,/g,'') }
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ═══════════════════════════════════════
+   렌더
+═══════════════════════════════════════ */
+function render() {
+  const app=document.getElementById('app');
+  // 로딩
+  if (S.loading) { app.innerHTML=`<div class="loading"><div class="spinner"></div>데이터 불러오는 중...</div>`; return; }
+  // 첫 비번 설정 (DB.appPassword===null)
+  if (!S.unlocked) { app.innerHTML=renderLock(); bindLock(); }
+  else { app.innerHTML=renderApp(); bindApp(); }
+  // 모달
+  if (S.modal) renderModal();
+}
+
+/* ── Lock ── */
+function renderLock() {
+  if (DB.appPassword === null) return `
+    <div class="lock"><div class="lock-box">
+      <div class="lock-icon">🔑</div>
+      <h2>처음 오셨군요!</h2>
+      <p>모든 멤버가 공유할<br>공용 비밀번호를 설정해주세요.</p>
+      <label class="lbl">새 비밀번호</label>
+      <input type="password" id="pw1" placeholder="비밀번호 입력" autocomplete="new-password">
+      <div style="margin-top:10px"></div>
+      <label class="lbl">비밀번호 확인</label>
+      <input type="password" id="pw2" placeholder="한 번 더 입력" autocomplete="new-password">
+      <div class="err" id="lerr"></div>
+      <button class="btn btn-primary" style="width:100%;margin-top:14px" id="btn-setpw">설정 완료</button>
+    </div></div>`;
+  return `
+    <div class="lock"><div class="lock-box">
+      <div class="lock-icon">🔒</div>
+      <h2>간밤 벙 정산</h2>
+      <p>공용 비밀번호를 입력하면<br>입장할 수 있어요.</p>
+      <label class="lbl">비밀번호</label>
+      <input type="password" id="pw-in" placeholder="비밀번호 입력" autocomplete="current-password">
+      <div class="err" id="lerr"></div>
+      <button class="btn btn-primary" style="width:100%;margin-top:14px" id="btn-login">입장하기</button>
+    </div></div>`;
+}
+
+function bindLock() {
+  if (DB.appPassword === null) {
+    const go = async () => {
+      const p1=document.getElementById('pw1').value,p2=document.getElementById('pw2').value;
+      const err=document.getElementById('lerr');
+      if (!p1) { err.textContent='비밀번호를 입력해주세요.'; return; }
+      if (p1!==p2) { err.textContent='비밀번호가 일치하지 않아요.'; return; }
+      err.textContent='저장 중...';
+      try {
+        DB.appPassword=p1;
+        await saveData(DB);
+        S.unlocked=true; render();
+      } catch(e) { err.textContent='저장 실패. 다시 시도해주세요.'; DB.appPassword=null; }
+    };
+    document.getElementById('btn-setpw').onclick=go;
+    document.getElementById('pw2').onkeydown=e=>{ if(e.key==='Enter') go(); };
+  } else {
+    const go = () => {
+      const pw=document.getElementById('pw-in').value;
+      if (pw===DB.appPassword) { S.unlocked=true; render(); }
+      else document.getElementById('lerr').textContent='비밀번호가 틀렸어요.';
+    };
+    document.getElementById('btn-login').onclick=go;
+    document.getElementById('pw-in').onkeydown=e=>{ if(e.key==='Enter') go(); };
+  }
+}
+
+/* ── App shell ── */
+function renderApp() {
+  return `
+    <div class="app-header">
+      <div><h1>🌃 간밤 벙 정산</h1><p class="dim">차수별 음식·술 분리 자동정산</p></div>
+      <button class="btn-ghost" id="btn-lock">🔒 잠금</button>
+    </div>
+    <div class="tabs">
+      <button class="tab ${S.tab==='new'?'on':''}" data-tab="new">새 정산</button>
+      <button class="tab ${S.tab==='archive'?'on':''}" data-tab="archive">아카이브 (${DB.archives.length})</button>
+      <button class="tab ${S.tab==='settings'?'on':''}" data-tab="settings">설정</button>
+    </div>
+    <div id="tc">${S.tab==='new'?renderNew():S.tab==='archive'?renderArchTab():renderSettings()}</div>`;
+}
+
+/* ── New settlement ── */
+function renderNew() {
+  const {totals,breakdown}=compute(S.rounds);
+  const gt=grandTotal(S.rounds);
+  const validR=S.rounds.filter(r=>((parseFloat(r.food)||0)+(parseFloat(r.drink)||0))>0&&r.members.some(m=>m.type));
+  const allNames=[...new Set(S.rounds.flatMap(r=>r.members.filter(m=>m.type).map(m=>m.name)))];
+  return `
+  <div class="card">
+    <div class="g2">
+      <div><label class="lbl">벙주 이름</label>
+        <input type="text" id="inp-host" value="${esc(S.host)}" placeholder="벙주 이름"></div>
+      <div><label class="lbl">정산 타이틀</label>
+        <input type="text" id="inp-title" value="${esc(S.title)}" placeholder="예: FC칼퇴 4월 벙"></div>
+    </div>
+  </div>
+  ${S.rounds.map((r,i)=>renderRound(r,i)).join('')}
+  <button class="btn-dashed mt8" id="btn-add-round">+ ${S.rounds.length+1}차 추가</button>
+  ${allNames.length>0&&gt>0?renderResult(totals,breakdown,validR,allNames,gt):''}
+  ${allNames.length>0&&gt>0?`
+  <div class="card mt12">
+    <p class="lbl mb8">아카이브 저장</p>
+    <p style="font-size:12px;color:var(--c2);margin-bottom:12px">벙주 개인 비밀번호를 설정하면 나중에 본인 벙만 수정·삭제할 수 있어요.</p>
+    <div class="fld">
+      <label class="lbl">벙주 개인 비밀번호 설정</label>
+      <input type="password" id="inp-hostpw" placeholder="본인만 아는 비밀번호" autocomplete="new-password">
+    </div>
+    <div class="flex">
+      <button class="btn btn-primary btn-sm" id="btn-save">💾 저장하기</button>
+      <button class="btn btn-sm" id="btn-reset">초기화</button>
+    </div>
+  </div>`:''}`;
+}
+
+function renderRound(r,idx) {
+  const c=COLORS[idx%COLORS.length],cbg=CBGS[idx%CBGS.length];
+  const food=parseFloat(r.food)||0,drink=parseFloat(r.drink)||0;
+  const all=r.members.filter(m=>m.type==='nosul'||m.type==='sul');
+  const sulM=r.members.filter(m=>m.type==='sul');
+  const nosulM=r.members.filter(m=>m.type==='nosul');
+  const fSh=all.length>0&&food>0?Math.round(food/all.length):0;
+  const dSh=sulM.length>0&&drink>0?Math.round(drink/sulM.length):0;
+  return `
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="rbadge" style="background:${cbg};color:${c}">${idx+1}</span>
+        <input type="text" class="r-label" data-id="${r.id}" value="${esc(r.label)}"
+          style="font-size:17px;font-weight:700;border:none;background:transparent;color:#111;width:60px;padding:0;outline:none">
+      </div>
+      ${S.rounds.length>1?`<button class="btn-ghost btn-danger" data-del-round="${r.id}">삭제</button>`:''}
+    </div>
+    <div class="g3">
+      <div class="venue-col"><label class="lbl">장소</label>
+        <input type="text" class="r-venue" data-id="${r.id}" value="${esc(r.venue)}" placeholder="장소명"></div>
+      <div><label class="lbl">음식값 (원)</label>
+        <input type="tel" inputmode="numeric" pattern="[0-9,]*"
+          class="r-food" data-id="${r.id}" value="${fmtComma(r.food)}" placeholder="0"></div>
+      <div><label class="lbl">술값 (원)</label>
+        <input type="tel" inputmode="numeric" pattern="[0-9,]*"
+          class="r-drink" data-id="${r.id}" value="${fmtComma(r.drink)}" placeholder="0"></div>
+    </div>
+    <div class="fld">
+      <label class="lbl" style="margin-bottom:8px">참석자
+        <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--c3);font-size:11px"> 이름 입력 후 Enter</span>
+      </label>
+      <div class="mlist">
+        ${r.members.length===0?`<p style="color:var(--c3);font-size:13px;padding:4px 0">아직 추가된 참석자가 없어요</p>`:''}
+        ${r.members.map(m=>`
+          <div class="mitem">
+            <span class="mname">${esc(m.name)}</span>
+            <div class="tgrp">
+              <button class="tgl ${m.type==='nosul'?'nosul-on':''}" data-tgl="nosul" data-mid="${m.id}" data-rid="${r.id}">🥤 노술</button>
+              <button class="tgl ${m.type==='sul'?'sul-on':''}"   data-tgl="sul"   data-mid="${m.id}" data-rid="${r.id}">🍺 술</button>
+            </div>
+            <button class="del-m" data-del-m="${m.id}" data-rid="${r.id}">×</button>
+          </div>`).join('')}
+      </div>
+      <div class="add-row">
+        <input type="text" class="inp-addm" data-rid="${r.id}" placeholder="참석자 이름 입력" autocomplete="off">
+        <button class="btn btn-sm" data-addm="${r.id}">추가</button>
+      </div>
+    </div>
+    ${(fSh>0||dSh>0)?`
+    <div class="preview" style="background:${cbg}">
+      <div class="preview-row">
+        <span style="font-size:13px;color:${c}">🥤 노술 ${nosulM.length}명 + 🍺 술 ${sulM.length}명</span>
+        <span style="font-size:15px;font-weight:700;color:${c}">${(food+drink).toLocaleString()}원</span>
+      </div>
+      ${fSh>0?`<div class="preview-row"><span style="font-size:12px;color:${c};opacity:.8">음식 ${all.length}명 엔빵</span><span style="font-size:12px;color:${c};opacity:.8">1인 ${fSh.toLocaleString()}원</span></div>`:''}
+      ${dSh>0?`<div class="preview-row"><span style="font-size:12px;color:${c};opacity:.8">술 ${sulM.length}명 엔빵</span><span style="font-size:12px;color:${c};opacity:.8">1인 ${dSh.toLocaleString()}원</span></div>`:''}
+      ${nosulM.length>0&&fSh>0?`
+      <div style="border-top:1px solid ${c}33;margin-top:6px;padding-top:6px;display:flex;gap:16px">
+        <span style="font-size:13px;color:${c};font-weight:700">노술 ${fSh.toLocaleString()}원</span>
+        <span style="font-size:13px;color:${c};font-weight:700">술 ${(fSh+dSh).toLocaleString()}원</span>
+      </div>`:''}
+    </div>`:''}
+  </div>`;
+}
+
+function renderResult(totals,breakdown,validR,allNames,gt) {
+  const sorted=[...allNames].sort((a,b)=>(totals[b]||0)-(totals[a]||0));
+  return `
+  <div class="card mt12">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <span style="font-size:15px;font-weight:700">📊 정산 결과</span>
+      <span style="font-size:18px;font-weight:700">총 ${gt.toLocaleString()}원</span>
+    </div>
+    <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr>
+        <th style="text-align:left">이름</th>
+        ${validR.map(r=>`<th>${esc(r.label)}${r.venue?`<br><span style="font-weight:400;font-size:10px;text-transform:none">${esc(r.venue)}</span>`:''}</th>`).join('')}
+        <th style="color:#111">합계</th>
+      </tr></thead>
+      <tbody>
+        ${sorted.map(name=>{
+          const bd=breakdown[name]||[];
+          const hasSul=bd.some(x=>x.isSul);
+          return `<tr>
+            <td>${esc(name)} <span class="${hasSul?'tag-s':'tag-n'}">${hasSul?'술':'노술'}</span></td>
+            ${validR.map(r=>{
+              const e=bd.find(x=>x.label===r.label);
+              return e
+                ?`<td>${e.total.toLocaleString()}<br><span class="sub">${e.food>0?`식 ${e.food.toLocaleString()}`:''}${e.drink>0?` 술 ${e.drink.toLocaleString()}`:''}</span></td>`
+                :`<td class="none">-</td>`;
+            }).join('')}
+            <td style="font-weight:700">${(totals[name]||0).toLocaleString()}</td>
+          </tr>`;
+        }).join('')}
+        <tr class="ttl">
+          <td>합계</td>
+          ${validR.map(r=>`<td>${((parseFloat(r.food)||0)+(parseFloat(r.drink)||0)).toLocaleString()}</td>`).join('')}
+          <td>${gt.toLocaleString()}</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </div>`;
+}
+
+/* ── Archive tab ── */
+function renderArchTab() {
+  if (S.archView) return renderArchDetail();
+  const list=DB.archives;
+  if (!list.length) return `<div class="empty">아직 저장된 정산 내역이 없어요.<br>새 정산을 완료하고 저장해보세요.</div>`;
+  return list.map(a=>`
+    <div class="arch-item" data-av="${a.id}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <span style="font-size:15px;font-weight:700">${esc(a.title||'제목 없음')}</span>
+          ${a.host?`<span class="tag-host">벙주 ${esc(a.host)}</span>`:''}
+          <p style="font-size:12px;color:var(--c2);margin-top:3px">${new Date(a.savedAt).toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'})} · ${a.rounds.length}차 · ${Object.keys(a.totals).length}명</p>
+        </div>
+        <div style="text-align:right;flex-shrink:0;margin-left:12px">
+          <p style="font-weight:700;font-size:15px">${(a.gt||0).toLocaleString()}원</p>
+          <button class="btn-ghost btn-danger" data-arch-manage="${a.id}" style="font-size:12px;padding:4px 0">수정·삭제</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function renderArchDetail() {
+  const a=DB.archives.find(x=>x.id===S.archView);
+  if (!a) { S.archView=null; return renderArchTab(); }
+  const sorted=Object.entries(a.totals).sort((x,y)=>y[1]-x[1]);
+  return `
+  <button class="btn-ghost" id="btn-back" style="padding:0;margin-bottom:16px;font-size:15px">← 목록으로</button>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+      <div>
+        <p style="font-size:18px;font-weight:700">${esc(a.title||'제목 없음')}</p>
+        ${a.host?`<p style="margin-top:4px">벙주 <span class="tag-host">${esc(a.host)}</span></p>`:''}
+        <p style="font-size:12px;color:var(--c2);margin-top:5px">${new Date(a.savedAt).toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'})}</p>
+      </div>
+      <span style="font-size:20px;font-weight:700;flex-shrink:0;margin-left:12px">${(a.gt||0).toLocaleString()}원</span>
+    </div>
+    ${a.rounds.filter(r=>((parseFloat(r.food)||0)+(parseFloat(r.drink)||0))>0).map(r=>`
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--c5);font-size:14px">
+        <span style="color:var(--c1)">${esc(r.label)}${r.venue?` · ${esc(r.venue)}`:''}</span>
+        <span style="font-weight:600">${((parseFloat(r.food)||0)+(parseFloat(r.drink)||0)).toLocaleString()}원</span>
+      </div>`).join('')}
+    <p style="font-size:11px;font-weight:700;color:var(--c2);text-transform:uppercase;letter-spacing:.05em;margin:16px 0 8px">인원별 정산</p>
+    ${sorted.map(([name,total])=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--c5)">
+        <span style="font-weight:600;font-size:15px">${esc(name)}</span>
+        <span style="font-weight:700;font-size:15px">${total.toLocaleString()}원</span>
+      </div>`).join('')}
+    <div style="margin-top:16px;display:flex;gap:8px">
+      <button class="btn btn-sm btn-danger" data-arch-manage="${a.id}">수정·삭제</button>
+    </div>
+  </div>`;
+}
+
+/* ── Modal ── */
+function renderModal() {
+  const existing = document.getElementById('overlay');
+  if (existing) existing.remove();
+
+  const m = S.modal;
+  const arch = DB.archives.find(x=>x.id===m.archId);
+  if (!arch) { S.modal=null; return; }
+
+  let html='';
+  if (m.type==='verify') {
+    html=`
+      <div class="overlay" id="overlay">
+        <div class="modal">
+          <h3>🔐 본인 확인</h3>
+          <p>벙주 비밀번호를 입력해야<br>수정·삭제할 수 있어요.</p>
+          <label class="lbl">벙주 개인 비밀번호</label>
+          <input type="password" id="modal-pw" placeholder="벙주 비밀번호" autocomplete="current-password" style="margin-top:6px">
+          <div class="err" id="modal-err"></div>
+          <div class="modal-btns">
+            <button class="btn" id="modal-cancel">취소</button>
+            <button class="btn btn-primary" id="modal-confirm">확인</button>
+          </div>
+        </div>
+      </div>`;
+  } else if (m.type==='action') {
+    html=`
+      <div class="overlay" id="overlay">
+        <div class="modal">
+          <h3>✏️ 수정·삭제</h3>
+          <p style="font-weight:600;margin-bottom:4px">${esc(arch.title||'제목 없음')}</p>
+          <p>무엇을 하시겠어요?</p>
+          <div class="modal-btns" style="flex-direction:column">
+            <button class="btn" id="modal-edit">✏️ 이 벙 다시 편집하기</button>
+            <button class="btn btn-danger" id="modal-delete">🗑️ 삭제하기</button>
+            <button class="btn-ghost" id="modal-cancel" style="text-align:center">취소</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  document.body.insertAdjacentHTML('beforeend', html);
+
+  document.getElementById('modal-cancel').onclick=()=>{ S.modal=null; document.getElementById('overlay').remove(); };
+
+  if (m.type==='verify') {
+    const confirm = () => {
+      const pw=document.getElementById('modal-pw').value;
+      if (pw===arch.hostPassword) {
+        S.modal={type:'action', archId:m.archId};
+        document.getElementById('overlay').remove();
+        renderModal();
+      } else {
+        document.getElementById('modal-err').textContent='비밀번호가 틀렸어요.';
+      }
+    };
+    document.getElementById('modal-confirm').onclick=confirm;
+    document.getElementById('modal-pw').onkeydown=e=>{ if(e.key==='Enter') confirm(); };
+    setTimeout(()=>document.getElementById('modal-pw')?.focus(),100);
+  }
+
+  if (m.type==='action') {
+    document.getElementById('modal-edit').onclick=async ()=>{
+      // 아카이브 데이터를 편집 상태로 불러오기
+      S.rounds=JSON.parse(JSON.stringify(arch.rounds));
+      S.host=arch.host||'';
+      S.title=arch.title||'';
+      S._editingArchId=arch.id; // 편집 중인 아카이브 ID 추적
+      S._editingHostPw=arch.hostPassword;
+      S.modal=null;
+      S.tab='new';
+      document.getElementById('overlay').remove();
+      render();
+      toast('✏️ 편집 모드로 불러왔어요');
+    };
+    document.getElementById('modal-delete').onclick=async ()=>{
+      document.getElementById('overlay').remove();
+      S.loading=true; render();
+      try {
+        DB.archives=DB.archives.filter(a=>a.id!==m.archId);
+        await saveData(DB);
+        S.archView=null; S.modal=null;
+        toast('🗑️ 삭제됐어요');
+      } catch(e) {
+        toast('❌ 삭제 실패. 다시 시도해주세요.');
+      }
+      S.loading=false; render();
+    };
+  }
+}
+
+/* ── Settings ── */
+function renderSettings() {
+  return `
+  <div class="scard">
+    <h3>공용 비밀번호 변경</h3>
+    <p style="font-size:13px;color:var(--c2);margin-bottom:14px">모든 멤버가 앱에 접속할 때 사용하는 공용 비밀번호예요.</p>
+    <div class="fld"><label class="lbl">현재 비밀번호</label><input type="password" id="pw-cur" placeholder="현재 비밀번호" autocomplete="current-password"></div>
+    <div class="fld"><label class="lbl">새 비밀번호</label><input type="password" id="pw-new" placeholder="새 비밀번호" autocomplete="new-password"></div>
+    <div class="fld"><label class="lbl">새 비밀번호 확인</label><input type="password" id="pw-new2" placeholder="한 번 더 입력" autocomplete="new-password"></div>
+    <div style="color:#c0392b;font-size:13px;min-height:18px" id="pw-err"></div>
+    <button class="btn btn-primary mt8" id="btn-chpw">비밀번호 변경</button>
+  </div>`;
+}
+
+/* ═══════════════════════════════════════
+   이벤트 바인딩
+═══════════════════════════════════════ */
+function bindApp() {
+  document.getElementById('btn-lock').onclick=()=>{ S.unlocked=false; render(); };
+  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{ S.tab=t.dataset.tab; render(); });
+  if (S.tab==='new')      bindNew();
+  if (S.tab==='archive')  bindArch();
+  if (S.tab==='settings') bindSettings_();
+}
+
+function bindNew() {
+  document.getElementById('inp-host').oninput=e=>S.host=e.target.value;
+  document.getElementById('inp-title').oninput=e=>S.title=e.target.value;
+
+  document.querySelectorAll('.r-label').forEach(el=>el.oninput=e=>{
+    const r=S.rounds.find(r=>r.id===e.target.dataset.id); if(r) r.label=e.target.value;
+  });
+  document.querySelectorAll('.r-venue').forEach(el=>el.oninput=e=>{
+    const r=S.rounds.find(r=>r.id===e.target.dataset.id); if(r) r.venue=e.target.value;
+  });
+
+  const bindAmt=(sel,field)=>{
+    document.querySelectorAll(sel).forEach(el=>{
+      el.oninput=e=>{
+        const raw=stripComma(e.target.value).replace(/[^0-9]/g,'');
+        const r=S.rounds.find(r=>r.id===e.target.dataset.id);
+        if(r) r[field]=raw;
+        e.target.value=raw?Number(raw).toLocaleString('ko-KR'):'';
+      };
+      el.onblur=()=>render();
+      el.onkeydown=e=>{ if(e.key==='Enter') e.target.blur(); };
+    });
+  };
+  bindAmt('.r-food','food');
+  bindAmt('.r-drink','drink');
+
+  document.querySelectorAll('[data-del-round]').forEach(btn=>btn.onclick=()=>{
+    S.rounds=S.rounds.filter(r=>r.id!==btn.dataset.delRound); render();
+  });
+  document.getElementById('btn-add-round').onclick=()=>{
+    S.rounds.push(mkRound(S.rounds.length)); render();
+  };
+
+  const doAdd=rid=>{
+    const inp=document.querySelector(`.inp-addm[data-rid="${rid}"]`);
+    if(!inp) return;
+    const name=inp.value.trim();
+    if(!name) return;
+    const r=S.rounds.find(r=>r.id===rid);
+    if(!r) return;
+    if(r.members.find(m=>m.name===name)) { toast('이미 추가된 이름이에요'); inp.value=''; return; }
+    r.members.push({id:uid(),name,type:null});
+    inp.value=''; render();
+  };
+  document.querySelectorAll('.inp-addm').forEach(inp=>{
+    inp.onkeydown=e=>{ if(e.key==='Enter') doAdd(inp.dataset.rid); };
+  });
+  document.querySelectorAll('[data-addm]').forEach(btn=>btn.onclick=()=>doAdd(btn.dataset.addm));
+
+  document.querySelectorAll('[data-tgl]').forEach(btn=>btn.onclick=()=>{
+    const r=S.rounds.find(r=>r.id===btn.dataset.rid);
+    const m=r&&r.members.find(m=>m.id===btn.dataset.mid);
+    if(!m) return;
+    m.type=m.type===btn.dataset.tgl?null:btn.dataset.tgl;
+    render();
+  });
+  document.querySelectorAll('[data-del-m]').forEach(btn=>btn.onclick=()=>{
+    const r=S.rounds.find(r=>r.id===btn.dataset.rid);
+    if(r) { r.members=r.members.filter(m=>m.id!==btn.dataset.delM); render(); }
+  });
+
+  const sv=document.getElementById('btn-save');
+  if(sv) sv.onclick=async ()=>{
+    const hostpw=document.getElementById('inp-hostpw')?.value||'';
+    const {totals,breakdown}=compute(S.rounds);
+    const isEditing=!!S._editingArchId;
+    const archData={
+      id: isEditing ? S._editingArchId : 'a'+Date.now(),
+      title:S.title||new Date().toLocaleDateString('ko-KR'),
+      host:S.host, hostPassword: isEditing ? S._editingHostPw : hostpw,
+      savedAt: isEditing ? DB.archives.find(a=>a.id===S._editingArchId)?.savedAt||Date.now() : Date.now(),
+      updatedAt:Date.now(),
+      rounds:JSON.parse(JSON.stringify(S.rounds)),
+      totals,breakdown,gt:grandTotal(S.rounds),
+    };
+    S.loading=true; render();
+    try {
+      if(isEditing) {
+        DB.archives=DB.archives.map(a=>a.id===archData.id?archData:a);
+      } else {
+        DB.archives.unshift(archData);
+      }
+      await saveData(DB);
+      S.rounds=[mkRound(0)]; S.host=''; S.title='';
+      S._editingArchId=null; S._editingHostPw=null;
+      toast(isEditing?'✅ 수정됐어요!':'✅ 아카이브에 저장됐어요!');
+    } catch(e) { toast('❌ 저장 실패. 다시 시도해주세요.'); }
+    S.loading=false; render();
+  };
+
+  const rs=document.getElementById('btn-reset');
+  if(rs) rs.onclick=()=>{
+    if(confirm('정산 내용을 초기화할까요?')) {
+      S.rounds=[mkRound(0)]; S.host=''; S.title='';
+      S._editingArchId=null; S._editingHostPw=null;
+      render();
+    }
+  };
+}
+
+function bindArch() {
+  document.querySelectorAll('[data-av]').forEach(el=>el.onclick=e=>{
+    if(e.target.closest('[data-arch-manage]')) return;
+    S.archView=el.dataset.av; render();
+  });
+  document.querySelectorAll('[data-arch-manage]').forEach(btn=>btn.onclick=e=>{
+    e.stopPropagation();
+    const archId=btn.dataset.archManage;
+    const arch=DB.archives.find(a=>a.id===archId);
+    if(!arch) return;
+    // 벙주 비번 없으면 바로 action으로
+    if(!arch.hostPassword) { S.modal={type:'action',archId}; renderModal(); }
+    else { S.modal={type:'verify',archId}; renderModal(); }
+  });
+  const back=document.getElementById('btn-back');
+  if(back) back.onclick=()=>{ S.archView=null; render(); };
+}
+
+function bindSettings_() {
+  document.getElementById('btn-chpw').onclick=async ()=>{
+    const cur=document.getElementById('pw-cur').value;
+    const n1=document.getElementById('pw-new').value;
+    const n2=document.getElementById('pw-new2').value;
+    const err=document.getElementById('pw-err');
+    if(cur!==DB.appPassword) { err.textContent='현재 비밀번호가 틀렸어요.'; return; }
+    if(!n1) { err.textContent='새 비밀번호를 입력해주세요.'; return; }
+    if(n1!==n2) { err.textContent='새 비밀번호가 일치하지 않아요.'; return; }
+    err.textContent='저장 중...';
+    try {
+      DB.appPassword=n1;
+      await saveData(DB);
+      err.textContent='';
+      toast('✅ 비밀번호가 변경됐어요!');
+      ['pw-cur','pw-new','pw-new2'].forEach(id=>document.getElementById(id).value='');
+    } catch(e) { err.textContent='저장 실패. 다시 시도해주세요.'; DB.appPassword=cur; }
+  };
+}
+
+/* ═══════════════════════════════════════
+   초기화: JSONBin에서 데이터 로드 후 시작
+═══════════════════════════════════════ */
+async function init() {
+  S.loading=true; render();
+  try {
+    DB=await loadData();
+    if(!DB.archives) DB.archives=[];
+  } catch(e) {
+    document.getElementById('app').innerHTML=`
+      <div class="empty">
+        <p style="font-size:24px;margin-bottom:12px">⚠️</p>
+        <p>데이터를 불러오지 못했어요.<br>인터넷 연결을 확인하고 새로고침해주세요.</p>
+      </div>`;
+    return;
+  }
+  S.loading=false; render();
+}
+
+init();
+</script>
+</body>
+</html>
