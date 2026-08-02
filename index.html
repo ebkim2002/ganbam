@@ -1,1 +1,1230 @@
-cat /mnt/user-data/outputs/bung_settlement_v2.html
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>간밤 벙 정산</title>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<!-- html2canvas -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- EmailJS -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+
+<style>
+:root{
+  --c0:#111;--c1:#444;--c2:#777;--c3:#aaa;--c4:#ddd;--c5:#f0f0f0;--c6:#fafafa;
+  --blue:#185FA5;--blue-bg:#E6F1FB;
+  --teal:#0F6E56;--teal-bg:#E1F5EE;
+  --amber:#c8860a;--amber-bg:#FEF3C7;
+  --red:#c0392b;--red-bg:#FDECEA;
+  --r:10px;--rs:6px;
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;background:#f2f2f7;color:var(--c0);font-size:15px;line-height:1.5;min-height:100dvh}
+.wrap{max-width:640px;margin:0 auto;padding:24px 16px calc(80px + var(--safe-bottom))}
+
+/* ── Auth screens ── */
+.auth-wrap{display:flex;align-items:center;justify-content:center;min-height:100dvh;padding:16px}
+.auth-box{background:#fff;border:1px solid var(--c4);border-radius:16px;padding:32px 24px;width:100%;max-width:380px}
+.auth-box .logo{font-size:36px;text-align:center;margin-bottom:12px}
+.auth-box h2{font-size:20px;font-weight:700;text-align:center;margin-bottom:4px}
+.auth-box .sub{font-size:13px;color:var(--c2);text-align:center;margin-bottom:24px}
+.auth-tabs{display:flex;border-bottom:1px solid var(--c4);margin-bottom:20px}
+.auth-tab{flex:1;padding:9px;font-size:14px;font-weight:600;cursor:pointer;border:none;background:none;color:var(--c2);border-bottom:2px solid transparent;margin-bottom:-1px;font-family:inherit;transition:all .15s}
+.auth-tab.on{color:var(--c0);border-bottom-color:var(--c0)}
+
+/* ── Form ── */
+.fld{margin-bottom:12px}
+label.lbl{display:block;font-size:11px;font-weight:700;color:var(--c2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+input[type=text],input[type=number],input[type=password],input[type=email],input[type=tel],select,textarea{
+  width:100%;border:1px solid var(--c4);border-radius:var(--rs);
+  padding:10px 12px;font-size:16px;font-family:inherit;outline:none;
+  background:#fff;color:var(--c0);transition:border-color .15s;
+  -webkit-appearance:none;appearance:none;
+}
+input:focus,select:focus,textarea:focus{border-color:#555}
+textarea{resize:vertical;min-height:80px}
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+@media(max-width:400px){.g3{grid-template-columns:1fr 1fr}.g3 .venue-col{grid-column:1/-1}}
+.check-row{display:flex;align-items:center;gap:8px;padding:10px 0}
+.check-row input[type=checkbox]{width:18px;height:18px;flex-shrink:0;accent-color:var(--blue)}
+.check-row label{font-size:14px;color:var(--c0);cursor:pointer}
+.hint{font-size:12px;color:var(--c2);margin-top:4px}
+
+/* ── Buttons ── */
+.btn{padding:10px 18px;border-radius:var(--rs);border:1px solid var(--c4);background:#fff;color:var(--c0);font-size:14px;font-family:inherit;cursor:pointer;font-weight:600;transition:all .15s;min-height:44px}
+.btn:active{opacity:.7}
+.btn-primary{background:var(--c0);color:#fff;border-color:var(--c0)}
+.btn-blue{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-sm{padding:8px 14px;font-size:13px;min-height:38px}
+.btn-ghost{border:none;background:none;color:var(--c2);font-size:13px;font-family:inherit;cursor:pointer;padding:6px 8px;min-height:36px}
+.btn-dashed{width:100%;padding:13px;border:1.5px dashed var(--c3);border-radius:var(--rs);background:none;color:var(--c2);font-size:14px;font-family:inherit;cursor:pointer;min-height:48px}
+.btn-danger{color:var(--red)}
+.btn-full{width:100%}
+
+/* ── Tabs ── */
+.tabs{display:flex;border-bottom:1px solid var(--c4);margin:16px 0 20px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:10px 14px;font-size:14px;font-weight:600;cursor:pointer;border:none;background:none;color:var(--c2);border-bottom:2px solid transparent;margin-bottom:-1px;font-family:inherit;transition:all .15s;white-space:nowrap;flex-shrink:0}
+.tab.on{color:var(--c0);border-bottom-color:var(--c0)}
+
+/* ── Cards ── */
+.card{background:#fff;border:1px solid var(--c4);border-radius:var(--r);padding:16px;margin-bottom:12px}
+
+/* ── Member rows ── */
+.mlist{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.mitem{display:flex;align-items:center;gap:8px;background:var(--c6);border:1px solid var(--c4);border-radius:var(--rs);padding:8px 10px}
+.mname{flex:1;font-weight:600;font-size:14px;word-break:break-all}
+.tgrp{display:flex;gap:4px;flex-shrink:0}
+.tgl{padding:6px 10px;border-radius:99px;border:1px solid var(--c4);background:#fff;color:var(--c1);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .15s;white-space:nowrap;min-height:36px}
+.tgl.nosul-on{background:var(--teal);border-color:transparent;color:#fff}
+.tgl.sul-on{background:var(--amber);border-color:transparent;color:#fff}
+.del-m{border:none;background:none;color:var(--c3);cursor:pointer;font-size:22px;line-height:1;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center}
+.del-m:hover{color:var(--red)}
+.add-row{display:flex;gap:8px}
+.add-row input{flex:1;min-width:0}
+
+/* ── Table ── */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px}
+.tbl{width:100%;border-collapse:collapse;font-size:12px;min-width:320px;table-layout:fixed}
+.tbl th{text-align:right;padding:8px 6px;font-weight:700;color:var(--c2);font-size:10px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;background:var(--c6);width:90px}
+.tbl th:first-child{text-align:left;width:72px}
+.tbl td{padding:9px 6px;border-top:1px solid var(--c5);text-align:right;white-space:nowrap;width:90px}
+.tbl td:first-child{text-align:left;font-weight:600;width:72px}
+.tbl .sub{display:block;font-size:10px;color:var(--c2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tbl tr.ttl td{border-top:2px solid var(--c4);background:var(--c6)}
+.tbl tr.ttl td:first-child{font-weight:700}
+.tbl .mbship-col{}
+.none{color:var(--c3)}
+.sub{color:var(--c2);font-size:10px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;width:100%}
+
+/* ── Tags ── */
+.tag{display:inline-block;padding:2px 7px;border-radius:99px;font-size:11px;font-weight:700}
+.tag-host{background:var(--blue-bg);color:var(--blue);margin-left:6px}
+.tag-n{background:var(--teal-bg);color:var(--teal)}
+.tag-s{background:var(--amber-bg);color:var(--amber)}
+.tag-new{background:#EAF3DE;color:#3B6D11}
+
+/* ── Archive ── */
+.arch-item{background:#fff;border:1px solid var(--c4);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:border-color .15s}
+.arch-item:active{background:var(--c6)}
+
+/* ── Modal ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;overflow-y:auto}
+.modal{background:#fff;border-radius:16px;padding:24px;width:100%;max-width:380px;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:18px;font-weight:700;margin-bottom:8px}
+.modal-btns{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.modal-btns .btn{flex:1;min-width:120px}
+
+/* ── Terms modal ── */
+.terms-body{background:var(--c6);border:1px solid var(--c4);border-radius:var(--rs);padding:14px;margin:12px 0;max-height:260px;overflow-y:auto;font-size:13px;line-height:1.8;color:var(--c1)}
+.terms-body ol{padding-left:18px}
+.terms-body li{margin-bottom:6px}
+
+
+/* ── Profile card ── */
+.profile-card{background:var(--blue-bg);border-radius:var(--r);padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px}
+.avatar{width:44px;height:44px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0}
+
+/* ── Misc ── */
+.rbadge{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0}
+.preview-box{border-radius:var(--rs);padding:11px 13px;margin-top:6px}
+.preview-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.preview-row:last-child{margin-bottom:0}
+.flex{display:flex;gap:8px;align-items:center}
+.flex-wrap{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mt8{margin-top:8px}.mt12{margin-top:12px}.mt16{margin-top:16px}
+.mb8{margin-bottom:8px}.mb12{margin-bottom:12px}
+.empty{text-align:center;padding:56px 0;color:var(--c2);font-size:14px;line-height:1.9}
+.err{color:var(--red);font-size:13px;margin-top:6px;min-height:18px}
+.app-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px}
+h1{font-size:22px;font-weight:700;letter-spacing:-0.5px}
+.dim{color:var(--c2);font-size:13px;margin-top:2px}
+.divider{border:none;border-top:1px solid var(--c4);margin:16px 0}
+.scard{background:#fff;border:1px solid var(--c4);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.scard h3{font-size:15px;font-weight:700;margin-bottom:14px}
+.loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:300;gap:12px;font-size:14px;color:var(--c2)}
+.spinner{width:28px;height:28px;border:3px solid var(--c4);border-top-color:var(--c0);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:calc(24px + var(--safe-bottom));left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:12px 22px;border-radius:99px;font-size:14px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+
+/* ── Snapshot target ── */
+#snap-target{background:#fff;padding:20px;border-radius:12px;font-family:-apple-system,sans-serif}
+#snap-target h2{font-size:18px;font-weight:700;margin-bottom:4px;color:#111}
+#snap-target .meta{font-size:12px;color:#777;margin-bottom:14px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════
+   CONFIG
+═══════════════════════════════════════ */
+const FB_CONFIG = {
+  apiKey:"AIzaSyBesjr5pr9-DYVvYTsc4rRsSGa7Zvty3nM",
+  authDomain:"ganbam-bung.firebaseapp.com",
+  projectId:"ganbam-bung",
+  storageBucket:"ganbam-bung.firebasestorage.app",
+  messagingSenderId:"532357684203",
+  appId:"1:532357684203:web:33be935c51ca6f500d17ae"
+};
+const EMAILJS_PK  = 'lAIGQCVCBr1Sine5W';
+const EMAILJS_SVC = 'service_b6s8xnw';
+const EMAILJS_TPL = 'template_e4hzlov';
+const MEMBERSHIP_FEE = 1000;
+
+firebase.initializeApp(FB_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+emailjs.init(EMAILJS_PK);
+
+/* ═══════════════════════════════════════
+   STATE
+═══════════════════════════════════════ */
+const COLORS=['#185FA5','#0F6E56','#993C1D','#3C3489','#854F0B','#3B6D11','#993556'];
+const CBGS  =['#E6F1FB','#E1F5EE','#FAECE7','#EEEDFE','#FAEEDA','#EAF3DE','#FBEAF0'];
+
+let S = {
+  user: null,       // Firebase user
+  profile: null,    // Firestore profile doc
+  tab: 'new',
+  host: '', title: '',
+  hostBank: '', hostAccount: '', hostAccountName: '',
+  rounds: [mkRound(0)],
+  includeMembership: true,
+  archView: null,
+  archives: [],
+  modal: null,
+  termsAgreed: false,
+  loading: false,
+  loadingMsg: '',
+  editingId: null,
+  editingHostPw: null,
+  resultData: null, // 저장 후 결과 페이지용
+};
+
+function mkRound(idx){return{id:uid(),label:`${idx+1}차`,venue:'',food:'',drink:'',members:[]}}
+function uid(){return'_'+Math.random().toString(36).slice(2)+Date.now()}
+
+/* ═══════════════════════════════════════
+   UTILS
+═══════════════════════════════════════ */
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2500);
+}
+function fmtComma(v){const n=parseFloat(String(v).replace(/,/g,''));if(!v||isNaN(n))return'';return Math.round(n).toLocaleString('ko-KR')}
+function stripComma(v){return String(v).replace(/,/g,'')}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function showLoading(msg='처리 중...'){S.loading=true;S.loadingMsg=msg;renderLoading()}
+function hideLoading(){S.loading=false;document.getElementById('loading-overlay')?.remove()}
+function renderLoading(){
+  document.getElementById('loading-overlay')?.remove();
+  if(!S.loading)return;
+  const d=document.createElement('div');
+  d.id='loading-overlay';d.className='loading-overlay';
+  d.innerHTML=`<div class="spinner"></div><span>${esc(S.loadingMsg)}</span>`;
+  document.body.appendChild(d);
+}
+
+/* ═══════════════════════════════════════
+   COMPUTE
+═══════════════════════════════════════ */
+function compute(rounds, includeMembership){
+  const totals={}, breakdown={};
+  // collect unique participants across all rounds
+  const allParticipants = [...new Set(rounds.flatMap(r=>r.members.filter(m=>m.type).map(m=>m.name)))];
+
+  for(const r of rounds){
+    const food=parseFloat(r.food)||0, drink=parseFloat(r.drink)||0;
+    const all=r.members.filter(m=>m.type==='nosul'||m.type==='sul');
+    const sulM=r.members.filter(m=>m.type==='sul');
+    if(!all.length)continue;
+    const fSh=all.length>0&&food>0?Math.round(food/all.length):0;
+    const dSh=sulM.length>0&&drink>0?Math.round(drink/sulM.length):0;
+    for(const m of all){
+      const isSul=m.type==='sul';
+      const mine=fSh+(isSul?dSh:0);
+      if(!totals[m.name]){totals[m.name]=0;breakdown[m.name]=[]}
+      totals[m.name]+=mine;
+      breakdown[m.name].push({label:r.label,venue:r.venue,food:fSh,drink:isSul?dSh:0,total:mine,isSul});
+    }
+  }
+  // Add membership fee
+  if(includeMembership){
+    for(const name of allParticipants){
+      if(!totals[name]){totals[name]=0;breakdown[name]=[]}
+      totals[name]+=MEMBERSHIP_FEE;
+    }
+  }
+  return{totals,breakdown,allParticipants};
+}
+function grandTotal(rounds){return rounds.reduce((s,r)=>s+(parseFloat(r.food)||0)+(parseFloat(r.drink)||0),0)}
+function membershipTotal(rounds){
+  const all=[...new Set(rounds.flatMap(r=>r.members.filter(m=>m.type).map(m=>m.name)))];
+  return all.length*MEMBERSHIP_FEE;
+}
+
+/* ═══════════════════════════════════════
+   FIREBASE AUTH
+═══════════════════════════════════════ */
+auth.onAuthStateChanged(async user=>{
+  if(user){
+    S.user=user;
+    // load profile
+    const doc=await db.collection('users').doc(user.uid).get();
+    S.profile=doc.exists?doc.data():null;
+    // load archives
+    await loadArchives();
+    render();
+  } else {
+    S.user=null; S.profile=null;
+    render();
+  }
+});
+
+async function loadArchives(){
+  try{
+    const snap=await db.collection('archives').orderBy('savedAt','desc').get();
+    S.archives=snap.docs.map(d=>({id:d.id,...d.data()}));
+  }catch(e){S.archives=[]}
+}
+
+/* ═══════════════════════════════════════
+   MAIN RENDER
+═══════════════════════════════════════ */
+function render(){
+  const app=document.getElementById('app');
+  if(!S.user){app.innerHTML=renderAuth();bindAuth();return}
+  if(!S.termsAgreed){app.innerHTML=renderTerms();bindTerms();return}
+  if(S.resultData){app.innerHTML=renderResultPage();bindResultPage();return}
+  app.innerHTML=renderApp();bindApp();
+  if(S.modal)renderModal();
+}
+
+/* ═══════════════════════════════════════
+   AUTH SCREEN
+═══════════════════════════════════════ */
+function renderAuth(){
+  const isLogin=S._authTab!=='signup';
+  return`
+  <div class="auth-wrap">
+    <div class="auth-box">
+      <div class="logo">🌃</div>
+      <h2>간밤 벙 정산</h2>
+      <p class="sub">차수별 음식·술 분리 자동정산</p>
+      <div class="auth-tabs">
+        <button class="auth-tab ${isLogin?'on':''}" data-atab="login">로그인</button>
+        <button class="auth-tab ${!isLogin?'on':''}" data-atab="signup">회원가입</button>
+      </div>
+      ${isLogin?renderLogin():renderSignup()}
+    </div>
+  </div>`;
+}
+
+function renderLogin(){
+  return`
+  <div class="fld"><label class="lbl">이메일 또는 아이디</label>
+    <input type="email" id="a-email" placeholder="이메일 입력" autocomplete="email"></div>
+  <div class="fld"><label class="lbl">비밀번호</label>
+    <input type="password" id="a-pw" placeholder="비밀번호 입력" autocomplete="current-password"></div>
+  <div class="err" id="a-err"></div>
+  <button class="btn btn-primary btn-full mt8" id="btn-login">로그인</button>
+  <p style="text-align:center;font-size:13px;color:var(--c2);margin-top:14px">계정이 없으신가요? <a href="#" id="go-signup" style="color:var(--blue)">회원가입</a></p>
+  <hr style="border:none;border-top:1px solid var(--c4);margin:16px 0">
+  <p style="text-align:center;font-size:12px;color:var(--c3);margin-bottom:8px">테스트 계정으로 빠르게 접속</p>
+  <button class="btn btn-full" id="btn-admin-login" style="font-size:13px;color:var(--blue);border-color:var(--blue)">🔧 Admin 계정으로 로그인</button>`;
+}
+
+function renderSignup(){
+  return`
+  <div class="g2">
+    <div class="fld"><label class="lbl">이름 <span style="color:var(--red)">*</span></label>
+      <input type="text" id="s-name" placeholder="실명"></div>
+    <div class="fld"><label class="lbl">닉네임</label>
+      <input type="text" id="s-nick" placeholder="벙에서 부르는 이름"></div>
+  </div>
+  <div class="fld"><label class="lbl">이메일 <span style="color:var(--red)">*</span></label>
+    <input type="email" id="s-email" placeholder="이메일 주소" autocomplete="email">
+    <p class="hint">정산 결과를 이메일로 받을 수 있어요</p></div>
+  <div class="fld"><label class="lbl">전화번호</label>
+    <input type="tel" id="s-phone" placeholder="010-0000-0000">
+    <p class="hint">카카오페이·토스 송금 시 활용</p></div>
+  <div class="fld"><label class="lbl">비밀번호 <span style="color:var(--red)">*</span></label>
+    <input type="password" id="s-pw" placeholder="6자 이상" autocomplete="new-password"></div>
+  <div class="fld"><label class="lbl">비밀번호 확인 <span style="color:var(--red)">*</span></label>
+    <input type="password" id="s-pw2" placeholder="비밀번호 재입력" autocomplete="new-password"></div>
+  <div class="err" id="a-err"></div>
+  <button class="btn btn-primary btn-full mt8" id="btn-signup">가입하기</button>
+  <p style="text-align:center;font-size:13px;color:var(--c2);margin-top:14px">이미 계정이 있으신가요? <a href="#" id="go-login" style="color:var(--blue)">로그인</a></p>`;
+}
+
+function bindAuth(){
+  document.querySelectorAll('[data-atab]').forEach(t=>t.onclick=()=>{S._authTab=t.dataset.atab;render()});
+  const loginBtn=document.getElementById('btn-login');
+  const signupBtn=document.getElementById('btn-signup');
+  const goSignup=document.getElementById('go-signup');
+  const goLogin=document.getElementById('go-login');
+  if(goSignup)goSignup.onclick=e=>{e.preventDefault();S._authTab='signup';render()}
+  if(goLogin)goLogin.onclick=e=>{e.preventDefault();S._authTab='login';render()}
+
+  if(loginBtn) loginBtn.onclick=async()=>{
+    const email=document.getElementById('a-email').value.trim();
+    const pw=document.getElementById('a-pw').value;
+    const err=document.getElementById('a-err');
+    if(!email||!pw){err.textContent='이메일과 비밀번호를 입력해주세요.';return}
+    showLoading('로그인 중...');
+    try{
+      await auth.signInWithEmailAndPassword(email,pw);
+    }catch(e){
+      hideLoading();
+      err.textContent=e.code==='auth/invalid-credential'?'이메일 또는 비밀번호가 틀렸어요.':'로그인 실패: '+e.message;
+    }
+  };
+
+  if(signupBtn) signupBtn.onclick=async()=>{
+    const name=document.getElementById('s-name').value.trim();
+    const nick=document.getElementById('s-nick').value.trim();
+    const email=document.getElementById('s-email').value.trim();
+    const phone=document.getElementById('s-phone').value.trim();
+    const pw=document.getElementById('s-pw').value;
+    const pw2=document.getElementById('s-pw2').value;
+    const err=document.getElementById('a-err');
+    if(!name){err.textContent='이름을 입력해주세요.';return}
+    if(!email){err.textContent='이메일을 입력해주세요.';return}
+    if(!pw||pw.length<6){err.textContent='비밀번호는 6자 이상이어야 해요.';return}
+    if(pw!==pw2){err.textContent='비밀번호가 일치하지 않아요.';return}
+    showLoading('가입 중...');
+    try{
+      const cred=await auth.createUserWithEmailAndPassword(email,pw);
+      await db.collection('users').doc(cred.user.uid).set({
+        name,nick:nick||name,email,phone,
+        createdAt:firebase.firestore.FieldValue.serverTimestamp()
+      });
+      S.profile={name,nick:nick||name,email,phone};
+      hideLoading();toast('✅ 가입 완료! 환영해요 '+name+'님');
+    }catch(e){
+      hideLoading();
+      err.textContent=e.code==='auth/email-already-in-use'?'이미 사용 중인 이메일이에요.':'가입 실패: '+e.message;
+    }
+  };
+
+  // Enter key
+  document.getElementById('a-pw')?.addEventListener('keydown',e=>{if(e.key==='Enter')loginBtn?.click()});
+  document.getElementById('s-pw2')?.addEventListener('keydown',e=>{if(e.key==='Enter')signupBtn?.click()});
+
+  // Admin 빠른 로그인
+  const adminBtn=document.getElementById('btn-admin-login');
+  if(adminBtn) adminBtn.onclick=async()=>{
+    const ADMIN_EMAIL='admin@ganbam.com';
+    const ADMIN_PW='Admin1234!';
+    showLoading('Admin 로그인 중...');
+    try{
+      await auth.signInWithEmailAndPassword(ADMIN_EMAIL,ADMIN_PW);
+    }catch(e){
+      // 계정 없으면 자동 생성
+      if(e.code==='auth/invalid-credential'||e.code==='auth/user-not-found'){
+        try{
+          const cred=await auth.createUserWithEmailAndPassword(ADMIN_EMAIL,ADMIN_PW);
+          await db.collection('users').doc(cred.user.uid).set({
+            name:'Admin',nick:'관리자',email:ADMIN_EMAIL,phone:'',
+            isAdmin:true,
+            createdAt:firebase.firestore.FieldValue.serverTimestamp()
+          });
+        }catch(e2){hideLoading();document.getElementById('a-err').textContent='Admin 생성 실패: '+e2.message}
+      } else {
+        hideLoading();
+        document.getElementById('a-err').textContent='Admin 로그인 실패: '+e.message;
+      }
+    }
+  };
+}
+
+/* ═══════════════════════════════════════
+   TERMS SCREEN
+═══════════════════════════════════════ */
+function renderTerms(){
+  const name=S.profile?.nick||S.profile?.name||'회원';
+  return`
+  <div class="auth-wrap">
+    <div class="auth-box" style="max-width:440px">
+      <div class="logo">📋</div>
+      <h2>벙주 이용 수칙</h2>
+      <p class="sub">${esc(name)}님, 정산 시작 전 수칙에 동의해주세요.</p>
+      <div class="terms-body">
+        <ol>
+          <li>벙 참석 인원 1인당 <strong>1,000원의 운영 회비</strong>가 자동 추가됩니다. 벙주는 정산 후 해당 금액을 모임 운영 계좌로 송금해주세요.</li>
+          <li>정산 금액 중 <strong>미납자가 발생할 경우</strong>, 운영비에서 벙주에게 우선 지급 후 입금 완료 시 운영 계좌로 납입합니다.</li>
+          <li>벙 정산 내역은 <strong>모든 회원이 열람 가능</strong>합니다. 정확하게 입력해주세요.</li>
+          <li>벙주는 정산 완료 후 <strong>결과를 참석자에게 공유</strong>할 책임이 있습니다.</li>
+          <li>본 프로그램에 입력된 정산 내역은 <strong>운영진 검토 목적</strong>으로 사용될 수 있습니다.</li>
+        </ol>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="terms-chk">
+        <label for="terms-chk">위 이용 수칙을 모두 읽었으며 동의합니다.</label>
+      </div>
+      <button class="btn btn-primary btn-full mt8" id="btn-agree">동의하고 시작하기</button>
+      <button class="btn btn-ghost btn-full mt8" id="btn-logout-terms" style="color:var(--c2)">로그아웃</button>
+    </div>
+  </div>`;
+}
+
+function bindTerms(){
+  document.getElementById('btn-agree').onclick=()=>{
+    if(!document.getElementById('terms-chk').checked){toast('⚠️ 수칙에 동의해주세요.');return}
+    S.termsAgreed=true;render();
+  };
+  document.getElementById('btn-logout-terms').onclick=()=>{
+    auth.signOut();S.termsAgreed=false;
+  };
+}
+
+/* ═══════════════════════════════════════
+   APP SHELL
+═══════════════════════════════════════ */
+function renderApp(){
+  const name=S.profile?.nick||S.profile?.name||S.user?.email||'';
+  return`
+  <div class="wrap">
+    <div class="app-header">
+      <div><h1>🌃 간밤 벙 정산</h1><p class="dim">차수별 음식·술 분리 자동정산</p></div>
+      <button class="btn-ghost" id="btn-logout">로그아웃</button>
+    </div>
+    <div class="profile-card">
+      <div class="avatar">${esc(name.slice(0,1))}</div>
+      <div>
+        <p style="font-weight:700;font-size:15px">${esc(name)}</p>
+        <p style="font-size:12px;color:var(--blue)">${esc(S.user?.email||'')}</p>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab ${S.tab==='new'?'on':''}" data-tab="new">새 정산</button>
+      <button class="tab ${S.tab==='archive'?'on':''}" data-tab="archive">아카이브 (${S.archives.length})</button>
+      <button class="tab ${S.tab==='settings'?'on':''}" data-tab="settings">설정</button>
+    </div>
+    <div id="tc">
+      ${S.tab==='new'?renderNew():S.tab==='archive'?renderArchTab():renderSettings()}
+    </div>
+  </div>`;
+}
+
+/* ═══════════════════════════════════════
+   NEW SETTLEMENT
+═══════════════════════════════════════ */
+function renderNew(){
+  const{totals,breakdown,allParticipants}=compute(S.rounds,S.includeMembership);
+  const gt=grandTotal(S.rounds);
+  const mbTotal=S.includeMembership?membershipTotal(S.rounds):0;
+  const validR=S.rounds.filter(r=>((parseFloat(r.food)||0)+(parseFloat(r.drink)||0))>0&&r.members.some(m=>m.type));
+
+  const profName=S.profile?.nick||S.profile?.name||'';
+
+  return`
+  <!-- 기본 정보 -->
+  <div class="card">
+    <div class="g2">
+      <div><label class="lbl">벙주 이름</label>
+        <input type="text" id="inp-host" value="${esc(S.host||profName)}" placeholder="벙주 이름"></div>
+      <div><label class="lbl">정산 타이틀</label>
+        <input type="text" id="inp-title" value="${esc(S.title)}" placeholder="예: FC칼퇴 4월 벙"></div>
+    </div>
+    <!-- 벙주 계좌 정보 -->
+    <p style="font-size:12px;font-weight:700;color:var(--c2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">벙주 송금 정보</p>
+    <div class="g3">
+      <div class="venue-col"><label class="lbl">은행</label>
+        <input type="text" id="inp-bank" value="${esc(S.hostBank)}" placeholder="예: 국민은행"></div>
+      <div><label class="lbl">계좌번호</label>
+        <input type="text" id="inp-acct" value="${esc(S.hostAccount)}" placeholder="계좌번호"></div>
+      <div><label class="lbl">예금주</label>
+        <input type="text" id="inp-acct-name" value="${esc(S.hostAccountName)}" placeholder="예금주"></div>
+    </div>
+    <!-- 멤버십비 -->
+    <div class="check-row" style="border-top:1px solid var(--c5);padding-top:12px">
+      <input type="checkbox" id="chk-membership" ${S.includeMembership?'checked':''}>
+      <label for="chk-membership">간밤 멤버십비 1,000원/인 포함</label>
+    </div>
+  </div>
+
+  <!-- 차수 -->
+  ${S.rounds.map((r,i)=>renderRound(r,i)).join('')}
+  <button class="btn-dashed mt8" id="btn-add-round">+ ${S.rounds.length+1}차 추가</button>
+
+  <!-- 결과 -->
+  ${allParticipants.length>0&&(gt>0||mbTotal>0)?renderResult(totals,breakdown,validR,allParticipants,gt,mbTotal):''}
+
+  <!-- 저장 -->
+  ${allParticipants.length>0&&(gt>0||mbTotal>0)?`
+  <div class="card mt12">
+    <p class="lbl mb8">아카이브 저장</p>
+    <p style="font-size:12px;color:var(--c2);margin-bottom:12px">벙주 개인 비밀번호를 설정하면 본인만 수정·삭제할 수 있어요.</p>
+    <div class="fld">
+      <label class="lbl">벙주 개인 비밀번호 ${S.editingId?'(기존 비번 유지)':''}</label>
+      <input type="password" id="inp-hostpw" placeholder="${S.editingId?'변경하지 않으면 비워두세요':'본인만 아는 비밀번호'}" autocomplete="new-password">
+    </div>
+    <!-- 이메일 발송 -->
+    ${S.profile?.email?`
+    <div class="check-row" style="border-top:1px solid var(--c5);padding-top:12px;margin-bottom:12px">
+      <input type="checkbox" id="chk-email" checked>
+      <label for="chk-email">정산 결과를 이메일로 발송 (${esc(S.profile.email)})</label>
+    </div>`:''}
+    <div class="flex-wrap">
+      <button class="btn btn-primary btn-sm" id="btn-save">${S.editingId?'✏️ 수정 저장':'💾 저장하기'}</button>
+      <button class="btn btn-sm" id="btn-reset">초기화</button>
+    </div>
+  </div>`:''}`;
+}
+
+function renderRound(r,idx){
+  const c=COLORS[idx%COLORS.length],cbg=CBGS[idx%CBGS.length];
+  const food=parseFloat(r.food)||0,drink=parseFloat(r.drink)||0;
+  const all=r.members.filter(m=>m.type==='nosul'||m.type==='sul');
+  const sulM=r.members.filter(m=>m.type==='sul');
+  const nosulM=r.members.filter(m=>m.type==='nosul');
+  const fSh=all.length>0&&food>0?Math.round(food/all.length):0;
+  const dSh=sulM.length>0&&drink>0?Math.round(drink/sulM.length):0;
+  return`
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="rbadge" style="background:${cbg};color:${c}">${idx+1}</span>
+        <input type="text" class="r-label" data-id="${r.id}" value="${esc(r.label)}"
+          style="font-size:17px;font-weight:700;border:none;background:transparent;color:#111;width:60px;padding:0;outline:none">
+      </div>
+      ${S.rounds.length>1?`<button class="btn-ghost btn-danger" data-del-round="${r.id}">삭제</button>`:''}
+    </div>
+    <div class="g3">
+      <div class="venue-col"><label class="lbl">장소</label>
+        <input type="text" class="r-venue" data-id="${r.id}" value="${esc(r.venue)}" placeholder="장소명"></div>
+      <div><label class="lbl">음식값 (원)</label>
+        <input type="tel" inputmode="numeric" class="r-food" data-id="${r.id}" value="${fmtComma(r.food)}" placeholder="0"></div>
+      <div><label class="lbl">술값 (원)</label>
+        <input type="tel" inputmode="numeric" class="r-drink" data-id="${r.id}" value="${fmtComma(r.drink)}" placeholder="0"></div>
+    </div>
+    <div class="fld">
+      <label class="lbl" style="margin-bottom:8px">참석자
+        <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--c3);font-size:11px"> 이름 입력 후 Enter</span>
+      </label>
+      <div class="mlist">
+        ${r.members.length===0?`<p style="color:var(--c3);font-size:13px;padding:4px 0">아직 추가된 참석자가 없어요</p>`:''}
+        ${r.members.map(m=>`
+          <div class="mitem">
+            <span class="mname">${esc(m.name)}</span>
+            <div class="tgrp">
+              <button class="tgl ${m.type==='nosul'?'nosul-on':''}" data-tgl="nosul" data-mid="${m.id}" data-rid="${r.id}">🥤 노술</button>
+              <button class="tgl ${m.type==='sul'?'sul-on':''}" data-tgl="sul" data-mid="${m.id}" data-rid="${r.id}">🍺 술</button>
+            </div>
+            <button class="del-m" data-del-m="${m.id}" data-rid="${r.id}">×</button>
+          </div>`).join('')}
+      </div>
+      <div class="add-row">
+        <input type="text" class="inp-addm" data-rid="${r.id}" placeholder="참석자 이름 입력" autocomplete="off">
+        <button class="btn btn-sm" data-addm="${r.id}">추가</button>
+      </div>
+    </div>
+    ${(fSh>0||dSh>0)?`
+    <div class="preview-box" style="background:${cbg}">
+      <div class="preview-row">
+        <span style="font-size:13px;color:${c}">🥤 노술 ${nosulM.length}명 + 🍺 술 ${sulM.length}명</span>
+        <span style="font-size:15px;font-weight:700;color:${c}">${(food+drink).toLocaleString()}원</span>
+      </div>
+      ${fSh>0?`<div class="preview-row"><span style="font-size:12px;color:${c};opacity:.8">음식 ${all.length}명 엔빵</span><span style="font-size:12px;color:${c};opacity:.8">1인 ${fSh.toLocaleString()}원</span></div>`:''}
+      ${dSh>0?`<div class="preview-row"><span style="font-size:12px;color:${c};opacity:.8">술 ${sulM.length}명 엔빵</span><span style="font-size:12px;color:${c};opacity:.8">1인 ${dSh.toLocaleString()}원</span></div>`:''}
+      ${nosulM.length>0&&fSh>0?`<div style="border-top:1px solid ${c}33;margin-top:6px;padding-top:6px;display:flex;gap:16px">
+        <span style="font-size:13px;color:${c};font-weight:700">노술 ${fSh.toLocaleString()}원</span>
+        <span style="font-size:13px;color:${c};font-weight:700">술 ${(fSh+dSh).toLocaleString()}원</span>
+      </div>`:''}
+    </div>`:''}
+  </div>`;
+}
+
+function renderResult(totals,breakdown,validR,allParticipants,gt,mbTotal){
+  const sorted=[...allParticipants].sort((a,b)=>(totals[b]||0)-(totals[a]||0));
+  const total=gt+(S.includeMembership?mbTotal:0);
+  return`
+  <div class="card mt12" id="snap-target">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <span style="font-size:15px;font-weight:700">📊 정산 결과</span>
+      <span style="font-size:18px;font-weight:700">총 ${total.toLocaleString()}원</span>
+    </div>
+    ${S.hostBank||S.hostAccount?`
+    <div style="background:var(--blue-bg);border-radius:var(--rs);padding:10px 12px;margin-bottom:12px;font-size:13px">
+      <span style="color:var(--blue);font-weight:700">💳 송금 정보</span>
+      <span style="color:var(--c1);margin-left:8px">${esc(S.hostBank)} ${esc(S.hostAccount)} ${S.hostAccountName?`(${esc(S.hostAccountName)})`:''}  · 벙주 ${esc(S.host)}</span>
+    </div>`:''}
+    <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr>
+        <th style="text-align:left">이름</th>
+        ${validR.map(r=>`<th>${esc(r.label)}${r.venue?`<br><span style="font-weight:400;font-size:10px;text-transform:none">${esc(r.venue)}</span>`:''}</th>`).join('')}
+        ${S.includeMembership?`<th class="mbship-col">멤버십</th>`:''}
+        <th style="color:#111">합계</th>
+      </tr></thead>
+      <tbody>
+        ${sorted.map(name=>{
+          const bd=breakdown[name]||[];
+          const hasSul=bd.some(x=>x.isSul);
+          return`<tr>
+            <td>${esc(name)} <span class="tag ${hasSul?'tag-s':'tag-n'}">${hasSul?'술':'노술'}</span></td>
+            ${validR.map(r=>{
+              const e=bd.find(x=>x.label===r.label);
+              return e
+                ?`<td><div style="text-align:right">${e.total.toLocaleString()}<div class="sub">${e.food>0?`식 ${e.food.toLocaleString()}`:''}${e.drink>0?` 술 ${e.drink.toLocaleString()}`:''}</div></div></td>`
+                :`<td class="none">-</td>`;
+            }).join('')}
+            ${S.includeMembership?`<td class="mbship-col">${MEMBERSHIP_FEE.toLocaleString()}</td>`:''}
+            <td>${(totals[name]||0).toLocaleString()}</td>
+          </tr>`;
+        }).join('')}
+        <tr class="ttl">
+          <td>합계</td>
+          ${validR.map(r=>`<td>${((parseFloat(r.food)||0)+(parseFloat(r.drink)||0)).toLocaleString()}</td>`).join('')}
+          ${S.includeMembership?`<td class="mbship-col">${mbTotal.toLocaleString()}</td>`:''}
+          <td>${total.toLocaleString()}</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </div>`;
+}
+
+
+/* ═══════════════════════════════════════
+   ARCHIVE
+═══════════════════════════════════════ */
+function renderArchTab(){
+  if(S.archView)return renderArchDetail();
+  if(!S.archives.length)return`<div class="empty">아직 저장된 정산 내역이 없어요.<br>새 정산을 완료하고 저장해보세요.</div>`;
+  return S.archives.map(a=>`
+    <div class="arch-item" data-av="${a.id}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <span style="font-size:15px;font-weight:700">${esc(a.title||'제목 없음')}</span>
+          ${a.host?`<span class="tag tag-host">벙주 ${esc(a.host)}</span>`:''}
+          <p style="font-size:12px;color:var(--c2);margin-top:3px">${a.savedAt?.toDate?new Date(a.savedAt.toDate()).toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'}):''} · ${(a.rounds||[]).length}차 · ${Object.keys(a.totals||{}).length}명</p>
+        </div>
+        <div style="text-align:right;flex-shrink:0;margin-left:12px">
+          <p style="font-weight:700;font-size:15px">${(a.gt||0).toLocaleString()}원</p>
+          <button class="btn-ghost btn-danger" data-arch-manage="${a.id}" style="font-size:12px;padding:4px 0">수정·삭제</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function renderArchDetail(){
+  const a=S.archives.find(x=>x.id===S.archView);
+  if(!a){S.archView=null;return renderArchTab()}
+  const sorted=Object.entries(a.totals||{}).sort((x,y)=>y[1]-x[1]);
+  return`
+  <button class="btn-ghost" id="btn-back" style="padding:0;margin-bottom:16px;font-size:15px">← 목록으로</button>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+      <div>
+        <p style="font-size:18px;font-weight:700">${esc(a.title||'제목 없음')}</p>
+        ${a.host?`<p style="margin-top:4px">벙주 <span class="tag tag-host">${esc(a.host)}</span></p>`:''}
+        <p style="font-size:12px;color:var(--c2);margin-top:5px">${a.savedAt?.toDate?new Date(a.savedAt.toDate()).toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'}):''}</p>
+      </div>
+      <span style="font-size:20px;font-weight:700;flex-shrink:0;margin-left:12px">${(a.gt||0).toLocaleString()}원</span>
+    </div>
+    ${a.hostBank||a.hostAccount?`
+    <div style="background:var(--blue-bg);border-radius:var(--rs);padding:10px 12px;margin-bottom:12px;font-size:13px">
+      <span style="color:var(--blue);font-weight:700">💳 송금 정보</span>
+      <span style="color:var(--c1);margin-left:8px">${esc(a.hostBank||'')} ${esc(a.hostAccount||'')} ${a.hostAccountName?`(${esc(a.hostAccountName)})`:''}  · 벙주 ${esc(a.host||'')}</span>
+    </div>`:''}
+    ${(a.rounds||[]).filter(r=>((parseFloat(r.food)||0)+(parseFloat(r.drink)||0))>0).map(r=>`
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--c5);font-size:14px">
+        <span style="color:var(--c1)">${esc(r.label)}${r.venue?` · ${esc(r.venue)}`:''}</span>
+        <span style="font-weight:600">${((parseFloat(r.food)||0)+(parseFloat(r.drink)||0)).toLocaleString()}원</span>
+      </div>`).join('')}
+    <p style="font-size:11px;font-weight:700;color:var(--c2);text-transform:uppercase;letter-spacing:.05em;margin:16px 0 8px">인원별 정산</p>
+    ${sorted.map(([name,total])=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--c5)">
+        <span style="font-weight:600;font-size:15px">${esc(name)}</span>
+        <span style="font-weight:700;font-size:15px">${total.toLocaleString()}원</span>
+      </div>`).join('')}
+    <div style="margin-top:16px;display:flex;gap:8px">
+      <button class="btn btn-sm btn-danger" data-arch-manage="${a.id}">수정·삭제</button>
+    </div>
+  </div>`;
+}
+
+/* ═══════════════════════════════════════
+   SETTINGS
+═══════════════════════════════════════ */
+function renderSettings(){
+  const p=S.profile||{};
+  return`
+  <div class="scard">
+    <h3>내 프로필</h3>
+    <div class="g2">
+      <div class="fld"><label class="lbl">이름</label><input type="text" id="s-name" value="${esc(p.name||'')}"></div>
+      <div class="fld"><label class="lbl">닉네임</label><input type="text" id="s-nick" value="${esc(p.nick||'')}"></div>
+    </div>
+    <div class="fld"><label class="lbl">전화번호</label><input type="tel" id="s-phone" value="${esc(p.phone||'')}"></div>
+    <div class="err" id="s-err"></div>
+    <button class="btn btn-primary btn-sm mt8" id="btn-save-profile">저장</button>
+  </div>
+  <div class="scard">
+    <h3>비밀번호 변경</h3>
+    <div class="fld"><label class="lbl">새 비밀번호</label><input type="password" id="pw-new" placeholder="새 비밀번호 (6자 이상)" autocomplete="new-password"></div>
+    <div class="fld"><label class="lbl">새 비밀번호 확인</label><input type="password" id="pw-new2" placeholder="한 번 더 입력" autocomplete="new-password"></div>
+    <div class="err" id="pw-err"></div>
+    <button class="btn btn-primary btn-sm mt8" id="btn-chpw">비밀번호 변경</button>
+  </div>`;
+}
+
+/* ═══════════════════════════════════════
+   MODAL
+═══════════════════════════════════════ */
+function renderModal(){
+  document.getElementById('overlay')?.remove();
+  const m=S.modal;
+  const arch=m.archId?S.archives.find(x=>x.id===m.archId):null;
+  let html='';
+
+  if(m.type==='verify'){
+    html=`<div class="overlay" id="overlay"><div class="modal">
+      <h3>🔐 본인 확인</h3>
+      <p style="font-size:13px;color:var(--c2);margin-bottom:14px">벙주 개인 비밀번호를 입력해야 수정·삭제할 수 있어요.</p>
+      <label class="lbl">벙주 개인 비밀번호</label>
+      <input type="password" id="modal-pw" placeholder="벙주 비밀번호" style="margin-top:6px">
+      <div class="err" id="modal-err"></div>
+      <div class="modal-btns">
+        <button class="btn" id="modal-cancel">취소</button>
+        <button class="btn btn-primary" id="modal-ok">확인</button>
+      </div>
+    </div></div>`;
+  } else if(m.type==='action'){
+    html=`<div class="overlay" id="overlay"><div class="modal">
+      <h3>✏️ 수정·삭제</h3>
+      <p style="font-weight:600;margin-bottom:4px">${esc(arch?.title||'')}</p>
+      <div class="modal-btns" style="flex-direction:column">
+        <button class="btn" id="modal-edit">✏️ 다시 편집하기</button>
+        <button class="btn btn-danger" id="modal-delete">🗑️ 삭제하기</button>
+        <button class="btn-ghost" id="modal-cancel" style="text-align:center">취소</button>
+      </div>
+    </div></div>`;
+  }
+
+  document.body.insertAdjacentHTML('beforeend',html);
+  document.getElementById('modal-cancel').onclick=()=>{S.modal=null;document.getElementById('overlay').remove()};
+
+  if(m.type==='verify'){
+    const ok=()=>{
+      const pw=document.getElementById('modal-pw').value;
+      if(pw===arch.hostPassword){S.modal={type:'action',archId:m.archId};document.getElementById('overlay').remove();renderModal()}
+      else document.getElementById('modal-err').textContent='비밀번호가 틀렸어요.';
+    };
+    document.getElementById('modal-ok').onclick=ok;
+    document.getElementById('modal-pw').onkeydown=e=>{if(e.key==='Enter')ok()};
+    setTimeout(()=>document.getElementById('modal-pw')?.focus(),100);
+  }
+
+  if(m.type==='action'){
+    document.getElementById('modal-edit').onclick=()=>{
+      S.rounds=JSON.parse(JSON.stringify(arch.rounds||[mkRound(0)]));
+      S.host=arch.host||''; S.title=arch.title||'';
+      S.hostBank=arch.hostBank||''; S.hostAccount=arch.hostAccount||''; S.hostAccountName=arch.hostAccountName||'';
+      S.includeMembership=arch.includeMembership!==false;
+      S.editingId=arch.id; S.editingHostPw=arch.hostPassword;
+      S.modal=null; S.tab='new';
+      document.getElementById('overlay').remove(); render();
+      toast('✏️ 편집 모드로 불러왔어요');
+    };
+    document.getElementById('modal-delete').onclick=async()=>{
+      document.getElementById('overlay').remove();
+      showLoading('삭제 중...');
+      try{
+        await db.collection('archives').doc(m.archId).delete();
+        S.archives=S.archives.filter(a=>a.id!==m.archId);
+        S.archView=null; S.modal=null;
+        toast('🗑️ 삭제됐어요');
+      }catch(e){toast('❌ 삭제 실패')}
+      hideLoading(); render();
+    };
+  }
+}
+
+/* ═══════════════════════════════════════
+   RESULT PAGE (저장 후 전환)
+═══════════════════════════════════════ */
+function renderResultPage(){
+  const d=S.resultData;
+  const{totals,breakdown,allParticipants,rounds,gt,includeMembership,title,host,hostBank,hostAccount,hostAccountName}=d;
+  const mbTotal=includeMembership?allParticipants.length*1000:0;
+  const total=gt;
+  const validR=rounds.filter(r=>((parseFloat(r.food)||0)+(parseFloat(r.drink)||0))>0&&r.members.some(m=>m.type));
+  const sorted=[...allParticipants].sort((a,b)=>(totals[b]||0)-(totals[a]||0));
+
+  return`
+  <div class="wrap">
+    <!-- 헤더 -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+      <button class="btn-ghost" id="btn-back-result" style="padding:0;font-size:20px">←</button>
+      <div>
+        <h1 style="font-size:20px">📊 정산 결과</h1>
+        <p class="dim">${esc(title||'')}</p>
+      </div>
+    </div>
+
+    <!-- 결과 카드 (스크린샷 대상) -->
+    <div id="snap-target" style="background:#fff;border:1px solid var(--c4);border-radius:var(--r);padding:20px;margin-bottom:12px">
+      <!-- 타이틀 -->
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--c5)">
+        <div>
+          <p style="font-size:19px;font-weight:700;color:#111">🌃 ${esc(title||'간밤 벙 정산')}</p>
+          ${host?`<p style="font-size:13px;color:var(--c2);margin-top:3px">벙주 <span style="font-weight:600;color:#111">${esc(host)}</span></p>`:''}
+          <p style="font-size:12px;color:var(--c3);margin-top:2px">${new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'})}</p>
+        </div>
+        <div style="text-align:right">
+          <p style="font-size:22px;font-weight:700;color:#111">${total.toLocaleString()}원</p>
+          <p style="font-size:12px;color:var(--c2)">총 지출</p>
+        </div>
+      </div>
+
+      <!-- 송금 정보 -->
+      ${hostBank||hostAccount?`
+      <div style="background:var(--blue-bg);border:1.5px solid #b8d4f0;border-radius:var(--r);padding:14px 16px;margin-bottom:16px">
+        <p style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">💳 송금 정보</p>
+        <p style="font-size:18px;font-weight:700;color:#111;letter-spacing:.02em">${esc(hostBank)} ${esc(hostAccount)}</p>
+        ${hostAccountName?`<p style="font-size:14px;color:var(--c1);margin-top:4px">예금주 <strong>${esc(hostAccountName)}</strong>${host?` · 벙주 <strong>${esc(host)}</strong>`:''}</p>`:''}
+      </div>`:''}
+
+      <!-- 차수 요약 -->
+      <div style="margin-bottom:14px">
+        ${validR.map((r,i)=>{
+          const food=parseFloat(r.food)||0,drink=parseFloat(r.drink)||0;
+          return`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--c5);font-size:14px">
+            <span style="color:#555">${esc(r.label)}${r.venue?` · ${esc(r.venue)}`:''}</span>
+            <span style="font-weight:600">${(food+drink).toLocaleString()}원</span>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <!-- 정산 테이블 -->
+      <p style="font-size:11px;font-weight:700;color:var(--c2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">인원별 정산</p>
+      <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr>
+          <th style="text-align:left">이름</th>
+          ${validR.map(r=>`<th>${esc(r.label)}${r.venue?`<br><span style="font-size:10px;font-weight:400;text-transform:none">${esc(r.venue)}</span>`:''}</th>`).join('')}
+          ${includeMembership?`<th class="mbship-col">멤버십</th>`:''}
+          <th style="color:#111">합계</th>
+        </tr></thead>
+        <tbody>
+          ${sorted.map(name=>{
+            const bd=breakdown[name]||[];
+            const hasSul=bd.some(x=>x.isSul);
+            return`<tr>
+              <td>${esc(name)} <span class="tag ${hasSul?'tag-s':'tag-n'}">${hasSul?'술':'노술'}</span></td>
+              ${validR.map(r=>{
+                const e=bd.find(x=>x.label===r.label);
+                return e
+                  ?`<td><div style="text-align:right">${e.total.toLocaleString()}<div class="sub">${e.food>0?`식 ${e.food.toLocaleString()}`:''}${e.drink>0?` 술 ${e.drink.toLocaleString()}`:''}</div></div></td>`
+                  :`<td class="none">-</td>`;
+              }).join('')}
+              ${includeMembership?`<td class="mbship-col">1,000</td>`:''}
+              <td>${(totals[name]||0).toLocaleString()}</td>
+            </tr>`;
+          }).join('')}
+          <tr class="ttl">
+            <td>합계</td>
+            ${validR.map(r=>`<td>${((parseFloat(r.food)||0)+(parseFloat(r.drink)||0)).toLocaleString()}</td>`).join('')}
+            ${includeMembership?`<td class="mbship-col">${mbTotal.toLocaleString()}</td>`:''}
+            <td>${total.toLocaleString()}</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+
+      <!-- 워터마크 -->
+      <p style="text-align:center;font-size:11px;color:var(--c3);margin-top:16px">🌃 간밤 벙 정산</p>
+    </div>
+
+    <!-- 액션 버튼들 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <button class="btn" id="btn-screenshot" style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px">
+        📸 이미지 저장
+      </button>
+      <button class="btn btn-blue" id="btn-send-email" style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px">
+        📧 이메일 발송
+      </button>
+    </div>
+    <button class="btn btn-full" id="btn-new-settlement" style="font-size:14px">+ 새 정산 시작</button>
+  </div>`;
+}
+
+function bindResultPage(){
+  document.getElementById('btn-back-result').onclick=()=>{S.resultData=null;S.tab='archive';render()};
+  document.getElementById('btn-new-settlement').onclick=()=>{
+    S.resultData=null;
+    S.rounds=[mkRound(0)];S.host='';S.title='';
+    S.hostBank='';S.hostAccount='';S.hostAccountName='';
+    S.editingId=null;S.editingHostPw=null;
+    S.tab='new';render();
+  };
+
+  // 📸 이미지 저장
+  document.getElementById('btn-screenshot').onclick=async()=>{
+    await saveScreenshot();
+  };
+
+  // 📧 이메일 발송
+  document.getElementById('btn-send-email')?.addEventListener('click',async()=>{
+    await sendEmail(S.profile?.email||S.user?.email, S.resultData.title);
+  });
+}
+
+async function saveScreenshot(){
+  const el=document.getElementById('snap-target');
+  if(!el){toast('❌ 결과 화면을 찾을 수 없어요');return}
+  showLoading('이미지 생성 중...');
+  try{
+    const canvas=await html2canvas(el,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false});
+    hideLoading();
+    // 모바일: 공유 API 사용, PC: 직접 다운로드
+    canvas.toBlob(async blob=>{
+      if(!blob)return;
+      const fileName=`간밤벙정산_${S.resultData?.title||'결과'}.png`;
+      if(navigator.share&&navigator.canShare&&navigator.canShare({files:[new File([blob],'a.png',{type:'image/png'})]})){
+        // 모바일 공유 시트
+        try{
+          await navigator.share({
+            files:[new File([blob],fileName,{type:'image/png'})],
+            title:'간밤 벙 정산 결과',
+          });
+        }catch(e){if(e.name!=='AbortError')downloadBlob(blob,fileName)}
+      } else {
+        // PC 다운로드
+        downloadBlob(blob,fileName);
+      }
+    },'image/png');
+  }catch(e){hideLoading();toast('❌ 이미지 생성 실패: '+e.message);console.error(e)}
+}
+
+function downloadBlob(blob,fileName){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=fileName;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('✅ 이미지 저장됐어요!');
+}
+
+/* ═══════════════════════════════════════
+   EMAIL (html2canvas + EmailJS)
+═══════════════════════════════════════ */
+async function sendEmail(email, title){
+  try{
+    const el=document.getElementById('snap-target');
+    if(!el){toast('❌ 결과 화면을 찾을 수 없어요');return}
+    showLoading('스크린샷 생성 중...');
+    const canvas=await html2canvas(el,{scale:2,backgroundColor:'#ffffff',useCORS:true});
+    const imgData=canvas.toDataURL('image/png');
+    hideLoading(); showLoading('이메일 발송 중...');
+    await emailjs.send(EMAILJS_SVC, EMAILJS_TPL,{
+      to_email: email,
+      to_name: S.profile?.name||'',
+      subject: `[간밤 벙 정산] ${title||'정산 결과'}`,
+      message: '정산 결과를 첨부 이미지로 확인해주세요.',
+      image: imgData,
+    });
+    hideLoading(); toast('📧 이메일 발송 완료!');
+  }catch(e){hideLoading();toast('❌ 이메일 발송 실패: '+e.message);console.error(e)}
+}
+
+
+/* ═══════════════════════════════════════
+   BIND
+═══════════════════════════════════════ */
+function bindApp(){
+  document.getElementById('btn-logout').onclick=()=>{auth.signOut();S.termsAgreed=false;S.tab='new'};
+  document.querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>{S.tab=t.dataset.tab;render()});
+  if(S.tab==='new')     bindNew();
+  if(S.tab==='archive') bindArch();
+
+  if(S.tab==='settings')bindSettings_();
+}
+
+function bindNew(){
+  document.getElementById('inp-host').oninput=e=>S.host=e.target.value;
+  document.getElementById('inp-title').oninput=e=>S.title=e.target.value;
+  document.getElementById('inp-bank').oninput=e=>S.hostBank=e.target.value;
+  document.getElementById('inp-acct').oninput=e=>S.hostAccount=e.target.value;
+  document.getElementById('inp-acct-name').oninput=e=>S.hostAccountName=e.target.value;
+  document.getElementById('chk-membership').onchange=e=>{S.includeMembership=e.target.checked;render()};
+
+  document.querySelectorAll('.r-label').forEach(el=>el.oninput=e=>{const r=S.rounds.find(r=>r.id===e.target.dataset.id);if(r)r.label=e.target.value});
+  document.querySelectorAll('.r-venue').forEach(el=>el.oninput=e=>{const r=S.rounds.find(r=>r.id===e.target.dataset.id);if(r)r.venue=e.target.value});
+
+  const bindAmt=(sel,field)=>document.querySelectorAll(sel).forEach(el=>{
+    el.oninput=e=>{
+      const raw=stripComma(e.target.value).replace(/[^0-9]/g,'');
+      const r=S.rounds.find(r=>r.id===e.target.dataset.id);
+      if(r)r[field]=raw;
+      e.target.value=raw?Number(raw).toLocaleString('ko-KR'):'';
+    };
+    el.onblur=()=>render();
+    el.onkeydown=e=>{if(e.key==='Enter')e.target.blur()};
+  });
+  bindAmt('.r-food','food'); bindAmt('.r-drink','drink');
+
+  document.querySelectorAll('[data-del-round]').forEach(btn=>btn.onclick=()=>{S.rounds=S.rounds.filter(r=>r.id!==btn.dataset.delRound);render()});
+  document.getElementById('btn-add-round').onclick=()=>{
+    const newR=mkRound(S.rounds.length);
+    if(S.rounds.length>0){
+      const prev=S.rounds[S.rounds.length-1];
+      newR.members=prev.members.map(m=>({id:uid(),name:m.name,type:null}));
+    }
+    S.rounds.push(newR);render();
+  };
+
+  const doAdd=rid=>{
+    const inp=document.querySelector(`.inp-addm[data-rid="${rid}"]`);
+    if(!inp)return;
+    const name=inp.value.trim();
+    if(!name)return;
+    const r=S.rounds.find(r=>r.id===rid);
+    if(!r)return;
+    if(r.members.find(m=>m.name===name)){toast('이미 추가된 이름이에요');inp.value='';return}
+    r.members.push({id:uid(),name,type:null});
+    inp.value='';render();
+  };
+  document.querySelectorAll('.inp-addm').forEach(inp=>inp.onkeydown=e=>{if(e.key==='Enter')doAdd(inp.dataset.rid)});
+  document.querySelectorAll('[data-addm]').forEach(btn=>btn.onclick=()=>doAdd(btn.dataset.addm));
+
+  document.querySelectorAll('[data-tgl]').forEach(btn=>btn.onclick=()=>{
+    const r=S.rounds.find(r=>r.id===btn.dataset.rid);
+    const m=r&&r.members.find(m=>m.id===btn.dataset.mid);
+    if(!m)return;
+    m.type=m.type===btn.dataset.tgl?null:btn.dataset.tgl;render();
+  });
+  document.querySelectorAll('[data-del-m]').forEach(btn=>btn.onclick=()=>{
+    const r=S.rounds.find(r=>r.id===btn.dataset.rid);
+    if(r){r.members=r.members.filter(m=>m.id!==btn.dataset.delM);render()}
+  });
+
+  const sv=document.getElementById('btn-save');
+  if(sv) sv.onclick=async()=>{
+    const hostpw=document.getElementById('inp-hostpw')?.value||'';
+    const sendEmail_=document.getElementById('chk-email')?.checked&&S.profile?.email;
+    const{totals,breakdown,allParticipants}=compute(S.rounds,S.includeMembership);
+    const gt=grandTotal(S.rounds)+(S.includeMembership?membershipTotal(S.rounds):0);
+    const archData={
+      title:S.title||new Date().toLocaleDateString('ko-KR'),
+      host:S.host, hostPassword:S.editingId?S.editingHostPw:(hostpw||null),
+      hostBank:S.hostBank, hostAccount:S.hostAccount, hostAccountName:S.hostAccountName,
+      savedAt:firebase.firestore.FieldValue.serverTimestamp(),
+      uid:S.user.uid,
+      rounds:JSON.parse(JSON.stringify(S.rounds)),
+      totals, breakdown, gt,
+      includeMembership:S.includeMembership,
+    };
+    showLoading('저장 중...');
+    try{
+      if(S.editingId){
+        await db.collection('archives').doc(S.editingId).update(archData);
+        S.archives=S.archives.map(a=>a.id===S.editingId?{id:S.editingId,...archData,savedAt:a.savedAt}:a);
+      } else {
+        const ref=await db.collection('archives').add(archData);
+        S.archives.unshift({id:ref.id,...archData});
+      }
+      hideLoading();
+      // 결과 페이지로 전환
+      const{totals:rt,breakdown:rb,allParticipants:rap}=compute(S.rounds,S.includeMembership);
+      S.resultData={
+        ...archData,
+        totals:rt,breakdown:rb,allParticipants:rap,
+        rounds:JSON.parse(JSON.stringify(S.rounds)),
+      };
+      S.rounds=[mkRound(0)]; S.host=''; S.title='';
+      S.hostBank=''; S.hostAccount=''; S.hostAccountName='';
+      S.editingId=null; S.editingHostPw=null;
+      render();
+      if(sendEmail_) await sendEmail(S.profile?.email||S.user?.email, archData.title);
+    }catch(e){hideLoading();toast('❌ 저장 실패: '+e.message);render();}
+  };
+
+  const rs=document.getElementById('btn-reset');
+  if(rs) rs.onclick=()=>{
+    if(confirm('정산 내용을 초기화할까요?')){
+      S.rounds=[mkRound(0)]; S.host=''; S.title='';
+      S.hostBank=''; S.hostAccount=''; S.hostAccountName='';
+      S.editingId=null; S.editingHostPw=null; render();
+    }
+  };
+}
+
+function bindArch(){
+  document.querySelectorAll('[data-av]').forEach(el=>el.onclick=e=>{
+    if(e.target.closest('[data-arch-manage]'))return;
+    S.archView=el.dataset.av;render();
+  });
+  document.querySelectorAll('[data-arch-manage]').forEach(btn=>btn.onclick=e=>{
+    e.stopPropagation();
+    const arch=S.archives.find(a=>a.id===btn.dataset.archManage);
+    if(!arch)return;
+    if(!arch.hostPassword){S.modal={type:'action',archId:arch.id};renderModal()}
+    else{S.modal={type:'verify',archId:arch.id};renderModal()}
+  });
+  document.getElementById('btn-back')?.addEventListener('click',()=>{S.archView=null;render()});
+}
+
+
+function bindSettings_(){
+  document.getElementById('btn-save-profile').onclick=async()=>{
+    const data={
+      name:document.getElementById('s-name').value.trim(),
+      nick:document.getElementById('s-nick').value.trim(),
+      phone:document.getElementById('s-phone').value.trim(),
+    };
+    const err=document.getElementById('s-err');
+    if(!data.name){err.textContent='이름을 입력해주세요.';return}
+    showLoading('저장 중...');
+    try{
+      await db.collection('users').doc(S.user.uid).update(data);
+      S.profile={...S.profile,...data};
+      hideLoading(); toast('✅ 프로필 저장됐어요!');
+    }catch(e){hideLoading();err.textContent='저장 실패: '+e.message}
+  };
+  document.getElementById('btn-chpw').onclick=async()=>{
+    const n1=document.getElementById('pw-new').value;
+    const n2=document.getElementById('pw-new2').value;
+    const err=document.getElementById('pw-err');
+    if(!n1||n1.length<6){err.textContent='비밀번호는 6자 이상이어야 해요.';return}
+    if(n1!==n2){err.textContent='비밀번호가 일치하지 않아요.';return}
+    showLoading('변경 중...');
+    try{
+      await S.user.updatePassword(n1);
+      hideLoading(); toast('✅ 비밀번호가 변경됐어요!');
+      err.textContent='';
+    }catch(e){
+      hideLoading();
+      err.textContent=e.code==='auth/requires-recent-login'?'보안상 재로그인 후 다시 시도해주세요.':'변경 실패: '+e.message;
+    }
+  };
+}
+
+// Wait for Firebase to initialize
+window.addEventListener('load',()=>{
+  // Auth state listener above handles initial render
+  setTimeout(()=>{if(!S.user)render()},1500);
+});
+</script>
+</body>
+</html>
