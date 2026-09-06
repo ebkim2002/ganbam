@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Release prerequisite: remove legacy archive passwords before member reads.
+    // Public signup retained: member means a signed-in Firebase account.
+    function member() {
+      return request.auth != null
+        && request.auth.uid != 'JYyMzHWgilNmh2Of3HJrq7KWycV2'
+        && request.auth.token.get('email', '') != 'admin@ganbam.com';
+    }
+    function admin() {
+      return member() && request.auth.token.get('admin', false) == true;
+    }
+    function manager() {
+      return member() && resource.data.uid is string && resource.data.uid.size() > 0
+        && (resource.data.uid == request.auth.uid || admin());
+    }
+    function validArchive() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['uid','title','host','hostBank','hostAccount','hostAccountName',
+          'savedAt','rounds','totals','breakdown','gt','includeMembership'])
+        && d.keys().hasOnly(['uid','title','host','hostBank','hostAccount','hostAccountName',
+          'savedAt','rounds','totals','breakdown','gt','includeMembership'])
+        && d.uid is string && d.uid.size() > 0
+        && d.title is string && d.host is string && d.hostBank is string
+        && d.hostAccount is string && d.hostAccountName is string
+        && d.savedAt == request.time && d.rounds is list
+        && d.totals is map && d.breakdown is map && d.gt is number && d.gt >= 0
+        && d.includeMembership is bool;
+    }
+    match /archives/{archiveId} {
+      allow read: if member();
+      allow create: if member() && validArchive() && request.resource.data.uid == request.auth.uid;
+      allow update: if manager() && validArchive() && request.resource.data.uid == resource.data.uid;
+      allow delete: if manager();
+    }
+    match /users/{userId} {
+      allow read: if member() && request.auth.uid == userId;
+      allow create: if member() && request.auth.uid == userId
+        && request.resource.data.keys().hasAll(['name','nick','email','phone','createdAt'])
+        && request.resource.data.keys().hasOnly(['name','nick','email','phone','createdAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() > 0
+        && request.resource.data.nick is string && request.resource.data.phone is string
+        && request.resource.data.email == request.auth.token.get('email', '')
+        && request.resource.data.createdAt == request.time;
+      allow update: if member() && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','nick','phone'])
+        && request.resource.data.name is string && request.resource.data.name.size() > 0
+        && request.resource.data.nick is string && request.resource.data.phone is string;
+    }
+  }
+}

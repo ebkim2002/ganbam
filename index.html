@@ -199,6 +199,8 @@ const CBGS  =['#E6F1FB','#E1F5EE','#FAECE7','#EEEDFE','#FAEEDA','#EAF3DE','#FBEA
 
 let S = {
   user: null,       // Firebase user
+  isAdmin: false,
+  archiveError: '',
   profile: null,    // Firestore profile doc
   tab: 'new',
   host: '', title: '',
@@ -212,7 +214,6 @@ let S = {
   loading: false,
   loadingMsg: '',
   editingId: null,
-  editingHostPw: null,
   resultData: null, // 저장 후 결과 페이지용
 };
 
@@ -282,26 +283,48 @@ function membershipTotal(rounds){
 /* ═══════════════════════════════════════
    FIREBASE AUTH
 ═══════════════════════════════════════ */
+let authVersion=0;
 auth.onAuthStateChanged(async user=>{
-  if(user){
-    S.user=user;
-    // load profile
+  const version=++authVersion;
+  S.user=user; S.profile=null; S.isAdmin=false; S.archives=[]; S.archiveError='';
+  S.modal=null; S.archView=null; S.resultData=null; S.editingId=null;
+  S.host=''; S.title=''; S.hostBank=''; S.hostAccount=''; S.hostAccountName='';
+  S.rounds=[mkRound(0)]; S.termsAgreed=false;
+  document.getElementById('overlay')?.remove();
+  if(!user){hideLoading();render();return}
+  try{
+    const token=await user.getIdTokenResult();
+    if(version!==authVersion)return;
+    S.isAdmin=token.claims.admin===true;
     const doc=await db.collection('users').doc(user.uid).get();
+    if(version!==authVersion)return;
     S.profile=doc.exists?doc.data():null;
-    // load archives
-    await loadArchives();
-    render();
-  } else {
-    S.user=null; S.profile=null;
-    render();
+    await loadArchives(version);
+  }catch(e){
+    if(version!==authVersion)return;
+    S.archiveError='계정 정보를 불러오지 못했어요. 권한과 연결 상태를 확인해주세요.';
   }
+  if(version!==authVersion)return;
+  hideLoading();render();
 });
 
-async function loadArchives(){
+async function loadArchives(version=authVersion){
   try{
     const snap=await db.collection('archives').orderBy('savedAt','desc').get();
-    S.archives=snap.docs.map(d=>({id:d.id,...d.data()}));
-  }catch(e){S.archives=[]}
+    if(version!==authVersion)return;
+    S.archives=snap.docs.map(d=>({...d.data(),id:d.id}));
+    S.archiveError='';
+  }catch(e){
+    if(version!==authVersion)return;
+    S.archives=[];
+    S.archiveError='정산 목록을 불러오지 못했어요. 권한과 연결 상태를 확인해주세요.';
+  }
+}
+
+function canManageArchive(arch){
+  return !!(auth.currentUser && auth.currentUser.uid===S.user?.uid
+    && arch && typeof arch.uid==='string' && arch.uid.length>0
+    && (arch.uid===auth.currentUser.uid || S.isAdmin===true));
 }
 
 /* ═══════════════════════════════════════
@@ -345,9 +368,7 @@ function renderLogin(){
   <div class="err" id="a-err"></div>
   <button class="btn btn-primary btn-full mt8" id="btn-login">로그인</button>
   <p style="text-align:center;font-size:13px;color:var(--c2);margin-top:14px">계정이 없으신가요? <a href="#" id="go-signup" style="color:var(--blue)">회원가입</a></p>
-  <hr style="border:none;border-top:1px solid var(--c4);margin:16px 0">
-  <p style="text-align:center;font-size:12px;color:var(--c3);margin-bottom:8px">테스트 계정으로 빠르게 접속</p>
-  <button class="btn btn-full" id="btn-admin-login" style="font-size:13px;color:var(--blue);border-color:var(--blue)">🔧 Admin 계정으로 로그인</button>`;
+  `;
 }
 
 function renderSignup(){
@@ -427,31 +448,7 @@ function bindAuth(){
   document.getElementById('a-pw')?.addEventListener('keydown',e=>{if(e.key==='Enter')loginBtn?.click()});
   document.getElementById('s-pw2')?.addEventListener('keydown',e=>{if(e.key==='Enter')signupBtn?.click()});
 
-  // Admin 빠른 로그인
-  const adminBtn=document.getElementById('btn-admin-login');
-  if(adminBtn) adminBtn.onclick=async()=>{
-    const ADMIN_EMAIL='admin@ganbam.com';
-    const ADMIN_PW='Admin1234!';
-    showLoading('Admin 로그인 중...');
-    try{
-      await auth.signInWithEmailAndPassword(ADMIN_EMAIL,ADMIN_PW);
-    }catch(e){
-      // 계정 없으면 자동 생성
-      if(e.code==='auth/invalid-credential'||e.code==='auth/user-not-found'){
-        try{
-          const cred=await auth.createUserWithEmailAndPassword(ADMIN_EMAIL,ADMIN_PW);
-          await db.collection('users').doc(cred.user.uid).set({
-            name:'Admin',nick:'관리자',email:ADMIN_EMAIL,phone:'',
-            isAdmin:true,
-            createdAt:firebase.firestore.FieldValue.serverTimestamp()
-          });
-        }catch(e2){hideLoading();document.getElementById('a-err').textContent='Admin 생성 실패: '+e2.message}
-      } else {
-        hideLoading();
-        document.getElementById('a-err').textContent='Admin 로그인 실패: '+e.message;
-      }
-    }
-  };
+
 }
 
 /* ═══════════════════════════════════════
@@ -571,11 +568,7 @@ function renderNew(){
   ${allParticipants.length>0&&(gt>0||mbTotal>0)?`
   <div class="card mt12">
     <p class="lbl mb8">아카이브 저장</p>
-    <p style="font-size:12px;color:var(--c2);margin-bottom:12px">벙주 개인 비밀번호를 설정하면 본인만 수정·삭제할 수 있어요.</p>
-    <div class="fld">
-      <label class="lbl">벙주 개인 비밀번호 ${S.editingId?'(기존 비번 유지)':''}</label>
-      <input type="password" id="inp-hostpw" placeholder="${S.editingId?'변경하지 않으면 비워두세요':'본인만 아는 비밀번호'}" autocomplete="new-password">
-    </div>
+    <p style="font-size:12px;color:var(--c2);margin-bottom:12px">저장한 계정과 지정된 관리자만 수정·삭제할 수 있어요.</p>
     <!-- 이메일 발송 -->
     ${S.profile?.email?`
     <div class="check-row" style="border-top:1px solid var(--c5);padding-top:12px;margin-bottom:12px">
@@ -707,6 +700,7 @@ function renderResult(totals,breakdown,validR,allParticipants,gt,mbTotal){
    ARCHIVE
 ═══════════════════════════════════════ */
 function renderArchTab(){
+  if(S.archiveError)return`<div class="empty" role="alert">${esc(S.archiveError)}</div>`;
   if(S.archView)return renderArchDetail();
   if(!S.archives.length)return`<div class="empty">아직 저장된 정산 내역이 없어요.<br>새 정산을 완료하고 저장해보세요.</div>`;
   return S.archives.map(a=>`
@@ -719,7 +713,7 @@ function renderArchTab(){
         </div>
         <div style="text-align:right;flex-shrink:0;margin-left:12px">
           <p style="font-weight:700;font-size:15px">${(a.gt||0).toLocaleString()}원</p>
-          <button class="btn-ghost btn-danger" data-arch-manage="${a.id}" style="font-size:12px;padding:4px 0">수정·삭제</button>
+          ${canManageArchive(a)?`<button class="btn-ghost btn-danger" data-arch-manage="${a.id}" style="font-size:12px;padding:4px 0">수정·삭제</button>`:''}
         </div>
       </div>
     </div>`).join('');
@@ -757,7 +751,7 @@ function renderArchDetail(){
         <span style="font-weight:700;font-size:15px">${total.toLocaleString()}원</span>
       </div>`).join('')}
     <div style="margin-top:16px;display:flex;gap:8px">
-      <button class="btn btn-sm btn-danger" data-arch-manage="${a.id}">수정·삭제</button>
+      ${canManageArchive(a)?`<button class="btn btn-sm btn-danger" data-arch-manage="${a.id}">수정·삭제</button>`:''}
     </div>
   </div>`;
 }
@@ -796,19 +790,8 @@ function renderModal(){
   const arch=m.archId?S.archives.find(x=>x.id===m.archId):null;
   let html='';
 
-  if(m.type==='verify'){
-    html=`<div class="overlay" id="overlay"><div class="modal">
-      <h3>🔐 본인 확인</h3>
-      <p style="font-size:13px;color:var(--c2);margin-bottom:14px">벙주 개인 비밀번호를 입력해야 수정·삭제할 수 있어요.</p>
-      <label class="lbl">벙주 개인 비밀번호</label>
-      <input type="password" id="modal-pw" placeholder="벙주 비밀번호" style="margin-top:6px">
-      <div class="err" id="modal-err"></div>
-      <div class="modal-btns">
-        <button class="btn" id="modal-cancel">취소</button>
-        <button class="btn btn-primary" id="modal-ok">확인</button>
-      </div>
-    </div></div>`;
-  } else if(m.type==='action'){
+  if(!canManageArchive(arch)){S.modal=null;toast('❌ 작성자 계정 또는 지정된 관리자만 관리할 수 있어요.');return}
+  if(m.type==='action'){
     html=`<div class="overlay" id="overlay"><div class="modal">
       <h3>✏️ 수정·삭제</h3>
       <p style="font-weight:600;margin-bottom:4px">${esc(arch?.title||'')}</p>
@@ -823,37 +806,30 @@ function renderModal(){
   document.body.insertAdjacentHTML('beforeend',html);
   document.getElementById('modal-cancel').onclick=()=>{S.modal=null;document.getElementById('overlay').remove()};
 
-  if(m.type==='verify'){
-    const ok=()=>{
-      const pw=document.getElementById('modal-pw').value;
-      if(pw===arch.hostPassword){S.modal={type:'action',archId:m.archId};document.getElementById('overlay').remove();renderModal()}
-      else document.getElementById('modal-err').textContent='비밀번호가 틀렸어요.';
-    };
-    document.getElementById('modal-ok').onclick=ok;
-    document.getElementById('modal-pw').onkeydown=e=>{if(e.key==='Enter')ok()};
-    setTimeout(()=>document.getElementById('modal-pw')?.focus(),100);
-  }
-
   if(m.type==='action'){
     document.getElementById('modal-edit').onclick=()=>{
+      if(!canManageArchive(arch)){toast('❌ 관리 권한을 다시 확인해주세요.');return}
       S.rounds=JSON.parse(JSON.stringify(arch.rounds||[mkRound(0)]));
       S.host=arch.host||''; S.title=arch.title||'';
       S.hostBank=arch.hostBank||''; S.hostAccount=arch.hostAccount||''; S.hostAccountName=arch.hostAccountName||'';
       S.includeMembership=arch.includeMembership!==false;
-      S.editingId=arch.id; S.editingHostPw=arch.hostPassword;
+      S.editingId=arch.id;
       S.modal=null; S.tab='new';
       document.getElementById('overlay').remove(); render();
       toast('✏️ 편집 모드로 불러왔어요');
     };
     document.getElementById('modal-delete').onclick=async()=>{
+      if(!canManageArchive(arch)){toast('❌ 관리 권한을 다시 확인해주세요.');return}
+      const version=authVersion;
       document.getElementById('overlay').remove();
       showLoading('삭제 중...');
       try{
         await db.collection('archives').doc(m.archId).delete();
+        if(version!==authVersion)return;
         S.archives=S.archives.filter(a=>a.id!==m.archId);
         S.archView=null; S.modal=null;
         toast('🗑️ 삭제됐어요');
-      }catch(e){toast('❌ 삭제 실패')}
+      }catch(e){if(version!==authVersion)return;toast('❌ 삭제 실패')}
       hideLoading(); render();
     };
   }
@@ -974,7 +950,7 @@ function bindResultPage(){
     S.resultData=null;
     S.rounds=[mkRound(0)];S.host='';S.title='';
     S.hostBank='';S.hostAccount='';S.hostAccountName='';
-    S.editingId=null;S.editingHostPw=null;
+    S.editingId=null;
     S.tab='new';render();
   };
 
@@ -1121,27 +1097,41 @@ function bindNew(){
 
   const sv=document.getElementById('btn-save');
   if(sv) sv.onclick=async()=>{
-    const hostpw=document.getElementById('inp-hostpw')?.value||'';
+    if(!auth.currentUser||auth.currentUser.uid!==S.user?.uid){
+      toast('❌ 로그인 상태가 변경됐어요. 다시 로그인한 뒤 저장해주세요.');
+      return;
+    }
+    const existing=S.editingId?S.archives.find(a=>a.id===S.editingId):null;
+    const version=authVersion;
+    const editingId=S.editingId;
+    if(S.editingId&&!canManageArchive(existing)){
+      toast('❌ 작성자 계정 또는 지정된 관리자만 수정할 수 있어요.');return;
+    }
     const sendEmail_=document.getElementById('chk-email')?.checked&&S.profile?.email;
     const{totals,breakdown,allParticipants}=compute(S.rounds,S.includeMembership);
     const gt=grandTotal(S.rounds)+(S.includeMembership?membershipTotal(S.rounds):0);
     const archData={
       title:S.title||new Date().toLocaleDateString('ko-KR'),
-      host:S.host, hostPassword:S.editingId?S.editingHostPw:(hostpw||null),
+      host:S.host,
       hostBank:S.hostBank, hostAccount:S.hostAccount, hostAccountName:S.hostAccountName,
       savedAt:firebase.firestore.FieldValue.serverTimestamp(),
-      uid:S.user.uid,
+      uid:existing?existing.uid:auth.currentUser.uid,
       rounds:JSON.parse(JSON.stringify(S.rounds)),
       totals, breakdown, gt,
       includeMembership:S.includeMembership,
     };
     showLoading('저장 중...');
     try{
-      if(S.editingId){
-        await db.collection('archives').doc(S.editingId).update(archData);
-        S.archives=S.archives.map(a=>a.id===S.editingId?{id:S.editingId,...archData,savedAt:a.savedAt}:a);
+      if(editingId){
+        const {uid:ownerUid,...changes}=archData;
+        await db.collection('archives').doc(editingId).update({
+          ...changes,hostPassword:firebase.firestore.FieldValue.delete()
+        });
+        if(version!==authVersion)return;
+        S.archives=S.archives.map(a=>a.id===editingId?{id:editingId,...archData,savedAt:a.savedAt}:a);
       } else {
         const ref=await db.collection('archives').add(archData);
+        if(version!==authVersion)return;
         S.archives.unshift({id:ref.id,...archData});
       }
       hideLoading();
@@ -1154,10 +1144,17 @@ function bindNew(){
       };
       S.rounds=[mkRound(0)]; S.host=''; S.title='';
       S.hostBank=''; S.hostAccount=''; S.hostAccountName='';
-      S.editingId=null; S.editingHostPw=null;
+      S.editingId=null;
       render();
       if(sendEmail_) await sendEmail(S.profile?.email||S.user?.email, archData.title);
-    }catch(e){hideLoading();toast('❌ 저장 실패: '+e.message);render();}
+    }catch(e){
+      if(version!==authVersion)return;
+      hideLoading();
+      toast(e.code==='permission-denied'
+        ?'❌ 저장 실패: Firestore 저장 권한이 거부됐어요. 관리자에게 문의해주세요. 입력 내용은 유지됩니다.'
+        :'❌ 저장 실패: '+e.message);
+      // Preserve the form and unsaved input after a rejected write.
+    }
   };
 
   const rs=document.getElementById('btn-reset');
@@ -1165,7 +1162,7 @@ function bindNew(){
     if(confirm('정산 내용을 초기화할까요?')){
       S.rounds=[mkRound(0)]; S.host=''; S.title='';
       S.hostBank=''; S.hostAccount=''; S.hostAccountName='';
-      S.editingId=null; S.editingHostPw=null; render();
+      S.editingId=null; render();
     }
   };
 }
@@ -1179,8 +1176,8 @@ function bindArch(){
     e.stopPropagation();
     const arch=S.archives.find(a=>a.id===btn.dataset.archManage);
     if(!arch)return;
-    if(!arch.hostPassword){S.modal={type:'action',archId:arch.id};renderModal()}
-    else{S.modal={type:'verify',archId:arch.id};renderModal()}
+    if(!canManageArchive(arch)){toast('❌ 작성자 계정 또는 지정된 관리자만 관리할 수 있어요.');return}
+    S.modal={type:'action',archId:arch.id};renderModal();
   });
   document.getElementById('btn-back')?.addEventListener('click',()=>{S.archView=null;render()});
 }
